@@ -1,19 +1,16 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import { storage } from '@/utils/storage';
 
-const envApiUrl = import.meta.env.VITE_API_URL;
-const isWytnet = window.location.hostname.endsWith('wytnet.com');
-
-export const API_URL = (isWytnet && (!envApiUrl || envApiUrl.includes('localhost')))
+export const API_URL = (window.location.hostname.endsWith('wytnet.com'))
   ? 'https://api.wytnet.com'
-  : (envApiUrl || 'http://localhost:8000');
+  : (import.meta.env.VITE_API_URL || 'http://localhost:8000');
 
 
 const api: AxiosInstance = axios.create({
   baseURL: API_URL,
   withCredentials: true,
-  headers: { 'Content-Type': 'application/json' },
 });
+
 
 // Attach access token to every request
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
