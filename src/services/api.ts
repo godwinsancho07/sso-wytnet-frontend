@@ -1,7 +1,13 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import { storage } from '@/utils/storage';
 
-export const API_URL = import.meta.env.VITE_API_URL || (window.location.hostname.endsWith('wytnet.com') ? 'https://api.wytnet.com' : 'http://localhost:8000');
+const envApiUrl = import.meta.env.VITE_API_URL;
+const isWytnet = window.location.hostname.endsWith('wytnet.com');
+
+export const API_URL = (isWytnet && (!envApiUrl || envApiUrl.includes('localhost')))
+  ? 'https://api.wytnet.com'
+  : (envApiUrl || 'http://localhost:8000');
+
 
 const api: AxiosInstance = axios.create({
   baseURL: API_URL,

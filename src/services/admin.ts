@@ -498,11 +498,9 @@ export const clientsAdminService = {
 
   /** Fetch personalized integration markdown for this client. */
   async getIntegrationDocs(clientDbId: string): Promise<string> {
-    const { data } = await api.get<string>(
-      `/v1/clients/${clientDbId}/integration-docs`,
-      { responseType: 'text', transformResponse: (v) => v },
-    );
-    return data;
+    const { data } = await api.get<any>(`/v1/clients/${clientDbId}/integration-docs`);
+    // If it's already a string, return it. If it's an object (FastAPI JSON), return as string.
+    return typeof data === 'string' ? data : JSON.stringify(data, null, 2);
   },
 
   /** Trigger a browser download of the integration markdown. */
