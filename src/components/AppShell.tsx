@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   Shield, LogOut, Menu, X, ChevronDown, Search,
@@ -19,6 +19,17 @@ export default function AppShell() {
   const main = items.filter((i) => i.section === 'main');
   const self = items.filter((i) => i.section === 'self');
   const homeRoute = main[0]?.to || '/dashboard';
+
+  // Auto-redirect admins away from the standard dashboard if they land there
+  const { pathname } = window.location;
+  useEffect(() => {
+    if (pathname === '/dashboard') {
+      const primary = useAuthStore.getState().primaryDashboard();
+      if (primary !== '/dashboard') {
+        navigate(primary, { replace: true });
+      }
+    }
+  }, [pathname, permissions]);
 
   const handleLogout = async () => {
     await logout();

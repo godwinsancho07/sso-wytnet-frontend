@@ -19,7 +19,10 @@ export default function SocialCallback() {
       storage.setRefreshToken(refreshToken);
       // Clean the fragment from the URL
       window.history.replaceState({}, document.title, window.location.pathname);
-      fetchUser().then(() => navigate('/dashboard', { replace: true }));
+      fetchUser().then(() => {
+        const home = useAuthStore.getState().primaryDashboard();
+        navigate(home, { replace: true });
+      });
     } else {
       navigate('/login?error=social_login_failed', { replace: true });
     }

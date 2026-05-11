@@ -12,12 +12,22 @@ const api: AxiosInstance = axios.create({
 });
 
 
-// Attach access token to every request
+// Attach access token and cache-busting to every request
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = storage.getAccessToken();
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // Force cache bust for identity/permission endpoints to prevent stale role data
+  if (config.method === 'get' && (
+    config.url?.includes('/me') || 
+    config.url?.includes('/permissions') ||
+    config.url?.includes('/sessions')
+  )) {
+    config.params = { ...config.params, _t: Date.now() };
+  }
+
   return config;
 });
 
