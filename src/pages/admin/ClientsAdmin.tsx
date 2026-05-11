@@ -9,6 +9,8 @@ import {
   AdminUserListItem,
 } from '@/services/admin';
 import Alert from '@/components/Alert';
+import { extractErrorMessage } from '@/utils/errors';
+
 import {
   AppWindow,
   Copy,
@@ -741,8 +743,9 @@ function ClientEditDrawer({
                   try {
                     await clientsAdminService.downloadIntegrationDocs(client.id, client.app_name);
                   } catch (e) {
-                    setError(extractErrorMessage(e, 'Could not download docs'));
+                    onError(extractErrorMessage(e, 'Could not download docs'));
                   }
+
                 }}
                 className="btn-secondary text-xs gap-1"
               >
