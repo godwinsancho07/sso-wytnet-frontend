@@ -1,4 +1,4 @@
-import api from './api';
+import api, { API_URL } from './api';
 import { storage } from '@/utils/storage';
 
 export interface LoginPayload {
@@ -94,7 +94,7 @@ export const authService = {
   },
 
   getSocialLoginUrl(provider: string): string {
-    return `${import.meta.env.VITE_API_URL || ''}/auth/${provider}`;
+    return `${API_URL}/auth/${provider}`;
   },
 };
 
