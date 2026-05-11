@@ -32,9 +32,13 @@ export default function Login() {
     if (nextUrl) {
       const token = storage.getAccessToken();
       // If going to an OAuth endpoint, append the token to bypass cookie issues
-      if (nextUrl.includes('/oauth/authorize') && token) {
-        const url = new URL(nextUrl);
-        url.searchParams.set('token', token);
+      if (nextUrl.includes('/oauth/authorize')) {
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        const url = new URL(nextUrl, baseUrl);
+        const token = storage.getAccessToken();
+        if (token) {
+          url.searchParams.set('token', token);
+        }
         window.location.href = url.toString();
         return;
       }

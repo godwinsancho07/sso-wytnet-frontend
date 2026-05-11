@@ -41,14 +41,16 @@ export default function OAuthConsent() {
       redirect_uri: redirectUri,
       scope: scopes.join(' '),
       confirm: 'true',
-      ...(state && { state }),
-      ...(nonce && { nonce }),
-      ...(codeChallenge && { code_challenge: codeChallenge }),
-      ...(codeChallengeMethod && { code_challenge_method: codeChallengeMethod }),
     });
+    if (state) url.append('state', state);
+    if (nonce) url.append('nonce', nonce);
+    if (codeChallenge) url.append('code_challenge', codeChallenge);
+    if (codeChallengeMethod) url.append('code_challenge_method', codeChallengeMethod);
+    const t = params.get('token');
+    if (t) url.append('token', t);
     try {
       // Use current origin to stay within port 3000 proxy
-      window.location.href = `/oauth/authorize?${url.toString()}`;
+      window.location.href = `${import.meta.env.VITE_API_URL}/oauth/authorize?${url.toString()}`;
     } catch (err) {
       setError('Authorization failed');
     }
