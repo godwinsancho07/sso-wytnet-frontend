@@ -26,7 +26,7 @@ export default function AppShell() {
     if (pathname === '/dashboard') {
       const primary = useAuthStore.getState().primaryDashboard();
       if (primary !== '/dashboard') {
-        navigate(primary, { replace: true });
+        window.location.href = primary;
       }
     }
   }, [pathname, permissions]);

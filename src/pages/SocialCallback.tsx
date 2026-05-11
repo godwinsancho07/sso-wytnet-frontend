@@ -21,7 +21,7 @@ export default function SocialCallback() {
       window.history.replaceState({}, document.title, window.location.pathname);
       fetchUser().then(() => {
         const home = useAuthStore.getState().primaryDashboard();
-        navigate(home, { replace: true });
+        window.location.href = home;
       });
     } else {
       navigate('/login?error=social_login_failed', { replace: true });

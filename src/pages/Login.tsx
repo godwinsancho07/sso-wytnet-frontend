@@ -45,7 +45,7 @@ export default function Login() {
       window.location.href = nextUrl;
       return;
     }
-    navigate(from || primaryDashboard(), { replace: true });
+    window.location.href = from || primaryDashboard();
   };
 
   useEffect(() => {
