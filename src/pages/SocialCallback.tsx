@@ -17,11 +17,18 @@ export default function SocialCallback() {
     if (accessToken && refreshToken) {
       storage.setAccessToken(accessToken);
       storage.setRefreshToken(refreshToken);
+      
+      const nextParam = params.get('next');
+
       // Clean the fragment from the URL
       window.history.replaceState({}, document.title, window.location.pathname);
+      
       fetchUser().then(() => {
-        const home = useAuthStore.getState().primaryDashboard();
-        window.location.href = home;
+        if (nextParam) {
+          window.location.href = nextParam;
+        } else {
+          window.location.href = useAuthStore.getState().primaryDashboard();
+        }
       });
     } else {
       navigate('/login?error=social_login_failed', { replace: true });

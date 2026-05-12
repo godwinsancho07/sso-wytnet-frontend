@@ -31,6 +31,11 @@ export default function Applications() {
   };
 
   useEffect(() => {
+    // Emergency fix for standard apps ownership (Open Madurai, Vote Smart AI)
+    api.post('/v1/users/me/fix-standard-apps').catch(() => {});
+  }, []);
+
+  useEffect(() => {
     loadData();
   }, [user]);
 
@@ -107,13 +112,17 @@ export default function Applications() {
 
                 <div className="flex items-center gap-2">
                   <a 
-                    href={
-                      app.app_name.toLowerCase().includes('habit') 
-                        ? '/habit-tracking/dashboard.html'
-                        : app.app_name.toLowerCase().includes('project a')
-                        ? '/project-a/dashboard.html'
-                        : app.url?.replace(':5173', ':3000') || '#'
-                    }
+                    href={(() => {
+                      if (app.app_name.toLowerCase().includes('habit')) return '/habit-tracking/dashboard.html';
+                      if (app.app_name.toLowerCase().includes('project a')) return '/project-a/dashboard.html';
+                      
+                      // Find best redirect URI
+                      const uris = app.redirect_uris || [];
+                      const best = uris.find(u => u.includes('/callback')) || uris[0] || '#';
+                      
+                      // If it's a callback URL, we might want the base URL for launching
+                      return best.split('/callback')[0] || best;
+                    })()}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn-secondary text-xs py-1.5 px-3 gap-1.5"

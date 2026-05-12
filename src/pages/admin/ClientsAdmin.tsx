@@ -58,6 +58,7 @@ function CreateClientModal({ open, onClose, onCreated }: CreateModalProps) {
   const [redirectUris, setRedirectUris] = useState<string[]>(['']);
   const [scopes, setScopes] = useState<string[]>(['openid', 'profile', 'email']);
   const [requirePkce, setRequirePkce] = useState(true);
+  const [initialAdmin, setInitialAdmin] = useState<AdminUserListItem | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -69,6 +70,7 @@ function CreateClientModal({ open, onClose, onCreated }: CreateModalProps) {
       setScopes(['openid', 'profile', 'email']);
       setRequirePkce(true);
       setError('');
+      setInitialAdmin(null);
     }
   }, [open]);
 
@@ -108,6 +110,15 @@ function CreateClientModal({ open, onClose, onCreated }: CreateModalProps) {
         require_pkce: requirePkce,
       };
       const result = await clientsAdminService.create(payload);
+
+      if (initialAdmin) {
+        try {
+          await clientsAdminService.assignAdmin(result.id, initialAdmin.id);
+        } catch (e) {
+          console.error('Failed to assign initial admin:', e);
+        }
+      }
+
       onCreated(result);
     } catch (e: any) {
       setError(e.response?.data?.detail || 'Failed to create client');
@@ -131,6 +142,43 @@ function CreateClientModal({ open, onClose, onCreated }: CreateModalProps) {
         </div>
         <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
           {error && <Alert type="error" message={error} />}
+
+          <div>
+            <label className="text-xs font-medium text-gray-700 uppercase tracking-wide">
+              Initial App Admin
+            </label>
+            <div className="mt-1">
+              {initialAdmin ? (
+                <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                  <div className="w-6 h-6 rounded-full bg-gray-200 text-gray-700 text-[10px] font-semibold flex items-center justify-center shrink-0">
+                    {userInitials(initialAdmin.email, initialAdmin.full_name)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-gray-800 truncate">
+                      {initialAdmin.email}
+                    </div>
+                    {initialAdmin.full_name && (
+                      <div className="text-xs text-gray-500 truncate">
+                        {initialAdmin.full_name}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setInitialAdmin(null)}
+                    className="p-1 rounded-full hover:bg-gray-200 text-gray-500"
+                  >
+                    <X className="w-3 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <UserPicker onPick={setInitialAdmin} excludeIds={[]} />
+              )}
+            </div>
+            <p className="mt-1 text-[10px] text-gray-500">
+              The user who will have administrative access to this application.
+            </p>
+          </div>
 
           <div>
             <label className="text-xs font-medium text-gray-700 uppercase tracking-wide">
@@ -380,7 +428,7 @@ function UserPicker({ onPick, excludeIds }: UserPickerProps) {
     const t = setTimeout(async () => {
       setLoading(true);
       try {
-        const r = await usersAdminService.searchUsers(query || undefined, undefined, 0, 8);
+        const r = await usersAdminService.searchUsers(query || undefined, undefined, 0, 8, 'app_admin');
         setResults(r.items.filter((u) => !excludeIds.includes(u.id)));
       } catch {
         setResults([]);
@@ -877,6 +925,7 @@ export default function ClientsAdmin() {
           <thead className="bg-gray-50 text-xs text-gray-600 uppercase">
             <tr>
               <th className="text-left p-3">Application</th>
+              <th className="text-left p-3">Client</th>
               <th className="text-left p-3">Client ID</th>
               <th className="text-left p-3">Scopes</th>
               <th className="text-left p-3">PKCE</th>
@@ -887,13 +936,13 @@ export default function ClientsAdmin() {
           <tbody className="divide-y divide-gray-100">
             {loading ? (
               <tr>
-                <td colSpan={6} className="p-8 text-center text-gray-400">
+                <td colSpan={7} className="p-8 text-center text-gray-400">
                   Loading clients…
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="p-8 text-center text-gray-400">
+                <td colSpan={7} className="p-8 text-center text-gray-400">
                   No OAuth clients found.
                 </td>
               </tr>
@@ -927,6 +976,19 @@ export default function ClientsAdmin() {
                           </div>
                         )}
                       </div>
+                    </div>
+                  </td>
+                  <td className="p-3">
+                    <div className="flex flex-col gap-1 max-w-[150px]">
+                      {c.admin_emails && c.admin_emails.length > 0 ? (
+                        c.admin_emails.map((email) => (
+                          <span key={email} className="text-xs text-gray-600 truncate" title={email}>
+                            {email}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-gray-400 italic">No admin</span>
+                      )}
                     </div>
                   </td>
                   <td className="p-3 font-mono text-xs text-gray-600 max-w-[200px] truncate">

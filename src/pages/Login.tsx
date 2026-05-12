@@ -20,8 +20,8 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isLoading, error, clearError, primaryDashboard, isAuthenticated } = useAuthStore();
-  const searchParams = new URLSearchParams(location.search);
-  const nextUrl = searchParams.get('next');
+  const searchParams = new URLSearchParams(window.location.search);
+  const nextUrl = searchParams.get('next') || new URLSearchParams(location.search).get('next');
   const from = (location.state as any)?.from?.pathname;
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
@@ -29,22 +29,27 @@ export default function Login() {
   });
 
   const redirectAfterLogin = () => {
+    console.log('Finalizing login. Destination:', nextUrl || from || 'dashboard');
+    
     if (nextUrl) {
-      const token = storage.getAccessToken();
-      // If going to an OAuth endpoint, append the token to bypass cookie issues
+      // Handle OAuth authorize redirects specially to ensure token is passed if needed
       if (nextUrl.includes('/oauth/authorize')) {
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-        const url = new URL(nextUrl, baseUrl);
         const token = storage.getAccessToken();
-        if (token) {
-          url.searchParams.set('token', token);
+        const baseUrl = window.location.origin;
+        try {
+          const url = new URL(nextUrl, baseUrl);
+          if (token) url.searchParams.set('token', token);
+          console.log('OAuth Redirect:', url.toString());
+          window.location.href = url.toString();
+          return;
+        } catch (e) {
+          console.error('URL parse failed:', e);
         }
-        window.location.href = url.toString();
-        return;
       }
       window.location.href = nextUrl;
       return;
     }
+    
     window.location.href = from || primaryDashboard();
   };
 
@@ -95,7 +100,7 @@ export default function Login() {
             <Alert type="error" message={error} onClose={clearError} />
           )}
 
-          <SocialLoginButtons />
+          <SocialLoginButtons next={nextUrl || undefined} />
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">

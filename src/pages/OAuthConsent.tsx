@@ -1,8 +1,8 @@
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import api from '@/services/api';
+import api, { API_URL } from '@/services/api';
 import Alert from '@/components/Alert';
-import { Shield, CheckCircle } from 'lucide-react';
+import { Shield, CheckCircle, ChevronRight, Lock, ArrowLeftRight } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
 const SCOPE_DESCRIPTIONS: Record<string, string> = {
@@ -44,13 +44,15 @@ export default function OAuthConsent() {
     });
     if (state) url.append('state', state);
     if (nonce) url.append('nonce', nonce);
-    if (codeChallenge) url.append('code_challenge', codeChallenge);
-    if (codeChallengeMethod) url.append('code_challenge_method', codeChallengeMethod);
+    if (codeChallenge) {
+      url.append('code_challenge', codeChallenge);
+      url.append('code_challenge_method', codeChallengeMethod || 'S256');
+    }
     const t = params.get('token');
     if (t) url.append('token', t);
+    
     try {
-      // Use current origin to stay within port 3000 proxy
-      window.location.href = `${import.meta.env.VITE_API_URL}/oauth/authorize?${url.toString()}`;
+      window.location.href = `${API_URL}/oauth/authorize?${url.toString()}`;
     } catch (err) {
       setError('Authorization failed');
     }
@@ -61,68 +63,107 @@ export default function OAuthConsent() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white shadow-sm border border-gray-100 mb-4 p-3">
-            {clientInfo?.logo_url ? (
-              <img src={clientInfo.logo_url} alt="Logo" className="w-full h-full object-contain" />
-            ) : (
-              <Shield className="w-8 h-8 text-primary-600" />
-            )}
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">Trust this App?</h1>
-          <p className="text-gray-500 mt-1 text-sm font-medium">An application is requesting access to your account.</p>
-        </div>
+    <div className="min-h-screen flex items-center justify-center p-6 bg-[#fafafa]">
+      {/* Background Decorative Elements */}
+      <div className="fixed inset-0 overflow-hidden -z-10 pointer-events-none">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary-50 rounded-full blur-[120px] opacity-60" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-50 rounded-full blur-[120px] opacity-60" />
+      </div>
 
-        <div className="card space-y-6">
-          {error && <Alert type="error" message={error} />}
-
-          {/* User Profile Info */}
-          <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl border border-gray-100">
-            <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center text-white font-bold text-sm">
-              {user?.email?.[0].toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-gray-900 truncate">{user?.email}</p>
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Logged in as</p>
-            </div>
-            <button onClick={() => navigate('/login')} className="text-xs text-primary-600 font-semibold hover:underline">
-              Switch
-            </button>
-          </div>
-
-          <div>
-            <p className="text-sm font-semibold text-gray-900 mb-3">
-              <span className="text-primary-600">{clientInfo?.app_name || clientId}</span> wants to verify your identity.
-            </p>
-            <div className="space-y-3">
-              {scopes.map((scope) => (
-                <div key={scope} className="flex items-start gap-3 text-sm text-gray-600">
-                  <div className="mt-0.5 w-4 h-4 rounded-full bg-green-50 text-green-600 flex items-center justify-center shrink-0">
-                    <CheckCircle className="w-3 h-3" />
+      <div className="w-full max-w-[480px]">
+        <div className="bg-white rounded-[32px] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.08)] border border-gray-100 overflow-hidden">
+          {/* Header Section */}
+          <div className="p-8 text-center border-b border-gray-50">
+            <div className="flex justify-center items-center gap-6 mb-8">
+              <div className="w-16 h-16 rounded-2xl bg-white shadow-sm border border-gray-100 p-3 flex items-center justify-center">
+                <Shield className="w-8 h-8 text-primary-600" />
+              </div>
+              <ArrowLeftRight className="w-5 h-5 text-gray-300" />
+              <div className="w-16 h-16 rounded-2xl bg-white shadow-sm border border-gray-100 p-3 flex items-center justify-center">
+                {clientInfo?.logo_url ? (
+                  <img src={clientInfo.logo_url} alt="Logo" className="w-full h-full object-contain" />
+                ) : (
+                  <div className="w-full h-full bg-primary-50 rounded-lg flex items-center justify-center text-primary-600 font-bold text-xl">
+                    {clientInfo?.app_name?.[0] || '?'}
                   </div>
-                  <span>{SCOPE_DESCRIPTIONS[scope] || scope}</span>
-                </div>
-              ))}
+                )}
+              </div>
+            </div>
+            
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Connect to {clientInfo?.app_name || 'Application'}</h1>
+            <p className="text-gray-500 text-sm font-medium">An application is requesting access to your WytPass account.</p>
+          </div>
+
+          <div className="p-8 space-y-8">
+            {error && <Alert type="error" message={error} />}
+
+            {/* Account Selector Section */}
+            <div className="flex items-center gap-4 p-4 bg-gray-50/50 rounded-2xl border border-gray-100/50">
+              <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-primary-200">
+                {user?.email?.[0].toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-0.5">Authenticated as</p>
+                <p className="text-sm font-bold text-gray-900 truncate">{user?.email}</p>
+              </div>
+              <button 
+                onClick={() => navigate('/login')} 
+                className="text-xs text-primary-600 font-bold hover:text-primary-700 transition-colors px-3 py-1.5 rounded-lg hover:bg-primary-50"
+              >
+                Switch
+              </button>
+            </div>
+
+            {/* Permissions Section */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                Requested Access
+                <Lock className="w-3.5 h-3.5 text-gray-400" />
+              </h3>
+              <div className="space-y-3">
+                {scopes.map((scope) => (
+                  <div key={scope} className="flex items-center gap-3.5 p-3.5 rounded-xl bg-white border border-gray-100 hover:border-primary-100 hover:bg-primary-50/10 transition-all group">
+                    <div className="w-8 h-8 rounded-lg bg-green-50 text-green-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                      <CheckCircle className="w-4 h-4" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-bold text-gray-800 leading-none mb-1">{scope.charAt(0).toUpperCase() + scope.slice(1)}</p>
+                        <p className="text-[11px] text-gray-400 font-medium leading-none">{SCOPE_DESCRIPTIONS[scope] || 'Access shared information'}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Actions Section */}
+            <div className="space-y-3 pt-2">
+              <button 
+                onClick={approve} 
+                className="btn-primary w-full py-4 text-sm font-bold flex items-center justify-center gap-2 group shadow-xl shadow-primary-100"
+              >
+                Trust and Continue
+                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </button>
+              <button 
+                onClick={deny} 
+                className="w-full py-3.5 text-sm font-bold text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-2xl transition-all"
+              >
+                Cancel Request
+              </button>
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 pt-2">
-            <button onClick={approve} className="btn-primary w-full py-3">
-              Trust this App
-            </button>
-            <button onClick={deny} className="btn-secondary w-full py-3 border-none shadow-none text-gray-400 hover:text-gray-600 hover:bg-transparent">
-              Cancel
-            </button>
-          </div>
-
-          <div className="pt-2 text-center border-t border-gray-100">
-            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
-              Securely authenticated by WytPass
+          <div className="px-8 pb-8 text-center">
+            <p className="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-bold">
+              Securely Powered by WytPass
             </p>
           </div>
         </div>
+
+        {/* Footer info */}
+        <p className="mt-8 text-center text-xs text-gray-400 font-medium px-8">
+            Only grant access to applications you trust. WytPass never shares your password with third-party apps.
+        </p>
       </div>
     </div>
   );

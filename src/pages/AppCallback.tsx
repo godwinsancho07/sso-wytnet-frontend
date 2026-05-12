@@ -16,29 +16,34 @@ export default function AppCallback() {
       return;
     }
 
+    // Retrieve the PKCE verifier we stored during the launch
+    const verifier = localStorage.getItem('pkce_verifier');
+
     // In a real scenario, this would be done by the backend of the sub-app.
-    // Since we're simulating the sub-app inside the SPA for demonstration:
-    const clientId = appKey === 'habit-tracking' ? 'client_XCCfrYINlTpyDqKD3b1Hsw' : 'client_xRleoxpBuyHaFScBx2bFQA';
-    const clientSecret = appKey === 'habit-tracking' ? '1TNI92JAe4boCf_wsxK5ndNGOR7uQyqLHzuQh4Jz7S0' : 'QmeXxUynHJmprGu2J1TLi40WtaOSa4xgIWOZHcQY5jU';
+    // For this demo, we'll use the params or fallback to the main SSO client for the exchange
+    const clientId = params.get('client_id') || 'client_XCCfrYINlTpyDqKD3b1Hsw';
     
+    // Construct token request
     const formData = new URLSearchParams({
       grant_type: 'authorization_code',
       code: code,
       client_id: clientId,
-      client_secret: clientSecret,
       redirect_uri: `${window.location.origin}/apps/callback?app=${appKey}`,
     });
+    if (verifier) formData.append('code_verifier', verifier);
 
     api.post('/oauth/token', formData, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     })
     .then(({ data }) => {
       localStorage.setItem(`${appKey}_access_token`, data.access_token);
+      localStorage.removeItem('pkce_verifier'); // Clean up
       setStatus('Login successful! Redirecting...');
       setTimeout(() => navigate(`/apps/dashboard?app=${appKey}`), 800);
     })
     .catch(() => setStatus('Connection error. Please try again.'));
-  }, [code, appKey, navigate]);
+    
+  }, [code, appKey, navigate, params]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">

@@ -3,7 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Shield, ShieldOff, KeyRound, LogOut, Trash2, Mail,
   CheckCircle2, XCircle, ShieldAlert, MailWarning, Plus, X,
-  Loader2, User as UserIcon, Monitor, LinkIcon, Activity, Tag,
+  Loader2, User as UserIcon, Monitor, LinkIcon, Activity, Tag, LayoutGrid,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -13,13 +13,15 @@ import {
   usersAdminService,
   AdminUserDetail,
   AdminUserDetailRole,
+  AuthorizedApp,
 } from '@/services/admin';
 
-type TabKey = 'profile' | 'sessions' | 'social' | 'activity' | 'roles';
+type TabKey = 'profile' | 'sessions' | 'apps' | 'social' | 'activity' | 'roles';
 
 const TABS: { id: TabKey; label: string; icon: any }[] = [
   { id: 'profile', label: 'Profile', icon: UserIcon },
   { id: 'sessions', label: 'Sessions', icon: Monitor },
+  { id: 'apps', label: 'Connected Apps', icon: LayoutGrid },
   { id: 'social', label: 'Linked Accounts', icon: LinkIcon },
   { id: 'activity', label: 'Activity', icon: Activity },
   { id: 'roles', label: 'Roles', icon: Tag },
@@ -35,6 +37,8 @@ export default function UserDetail() {
   const [success, setSuccess] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [tab, setTab] = useState<TabKey>('profile');
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -110,19 +114,19 @@ export default function UserDetail() {
     );
   };
 
-  const handleDelete = () => {
+  const confirmDelete = async () => {
     if (!detail) return;
-    const ok = window.confirm(
-      `PERMANENTLY DELETE ${detail.user.email}? This cannot be undone.`,
-    );
-    if (!ok) return;
     setBusy('delete');
     setError('');
-    usersAdminService
-      .deleteUser(userId)
-      .then(() => navigate('/admin/users'))
-      .catch((e) => setError(extractErrorMessage(e, 'Delete failed')))
-      .finally(() => setBusy(null));
+    try {
+      await usersAdminService.deleteUser(userId);
+      navigate('/admin/users');
+    } catch (e) {
+      setError(extractErrorMessage(e, 'Delete failed'));
+    } finally {
+      setBusy(null);
+      setIsDeleteOpen(false);
+    }
   };
 
   if (loading && !detail) {
@@ -157,6 +161,24 @@ export default function UserDetail() {
 
       {error && <Alert type="error" message={error} onClose={() => setError('')} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess('')} />}
+
+      <EditUserModal
+        open={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
+        user={detail.user}
+        onUpdated={() => {
+          setIsEditOpen(false);
+          load();
+          setSuccess('User updated successfully');
+        }}
+      />
+
+      <DeleteUserModal
+        open={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={confirmDelete}
+        email={detail.user.email}
+      />
 
       {/* Header */}
       <div className="card p-6">
@@ -198,6 +220,12 @@ export default function UserDetail() {
           {/* Action toolbar */}
           <div className="flex flex-wrap gap-2">
             <ActionButton
+              onClick={() => setIsEditOpen(true)}
+              icon={UserIcon}
+            >
+              Edit profile
+            </ActionButton>
+            <ActionButton
               onClick={handleSuspendToggle}
               loading={busy === 'suspend' || busy === 'activate'}
               icon={u.is_active ? ShieldOff : Shield}
@@ -220,7 +248,7 @@ export default function UserDetail() {
               Force logout
             </ActionButton>
             <ActionButton
-              onClick={handleDelete}
+              onClick={() => setIsDeleteOpen(true)}
               loading={busy === 'delete'}
               icon={Trash2}
               tone="red"
@@ -256,13 +284,14 @@ export default function UserDetail() {
       </div>
 
       <div className="space-y-4">
-        {tab === 'profile' && <ProfileTab detail={detail} />}
-        {tab === 'sessions' && <SessionsTab detail={detail} />}
-        {tab === 'social' && <SocialTab detail={detail} />}
-        {tab === 'activity' && <ActivityTab detail={detail} />}
+        {tab === 'profile' && <ProfileTab detail={detail!} />}
+        {tab === 'sessions' && <SessionsTab detail={detail!} />}
+        {tab === 'apps' && <AppsTab userId={userId} />}
+        {tab === 'social' && <SocialTab detail={detail!} />}
+        {tab === 'activity' && <ActivityTab detail={detail!} />}
         {tab === 'roles' && (
           <RolesTab
-            detail={detail}
+            detail={detail!}
             userId={userId}
             onChanged={load}
             setError={setError}
@@ -409,6 +438,70 @@ function SessionsTab({ detail }: { detail: AdminUserDetail }) {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function AppsTab({ userId }: { userId: string }) {
+  const [apps, setApps] = useState<AuthorizedApp[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    usersAdminService.getUserConnectedApps(userId)
+      .then(setApps)
+      .finally(() => setLoading(false));
+  }, [userId]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12 text-gray-400">
+        <Loader2 className="w-5 h-5 animate-spin" />
+      </div>
+    );
+  }
+
+  if (apps.length === 0) {
+    return <EmptyCard text="No connected applications." />;
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {apps.map((app) => (
+        <div key={app.id} className="card p-4 flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center font-bold">
+              {(app.app_name?.[0] || '?').toUpperCase()}
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900">{app.app_name}</h4>
+              <p className="text-xs text-gray-500 font-mono">{app.client_id}</p>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-400 uppercase tracking-wider font-medium">Authorized On</span>
+              <span className="text-gray-700">{app.last_used ? new Date(app.last_used).toLocaleDateString() : '—'}</span>
+            </div>
+            <div className="flex flex-wrap gap-1 mt-1">
+              {app.scopes?.map((scope: string) => (
+                <span key={scope} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 border border-gray-200">
+                  {scope}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <a 
+            href={app.url} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="mt-2 text-xs text-primary-600 hover:underline inline-flex items-center gap-1"
+          >
+            Open Application <LinkIcon className="w-3 h-3" />
+          </a>
+        </div>
+      ))}
     </div>
   );
 }
@@ -605,5 +698,186 @@ function RolesTab({
 function EmptyCard({ text }: { text: string }) {
   return (
     <div className="card p-12 text-center text-sm text-gray-400">{text}</div>
+  );
+}
+
+interface EditUserModalProps {
+  open: boolean;
+  onClose: () => void;
+  user: AdminUserDetail['user'];
+  onUpdated: () => void;
+}
+
+function EditUserModal({ open, onClose, user, onUpdated }: EditUserModalProps) {
+  const [email, setEmail] = useState(user.email);
+  const [fullName, setFullName] = useState(user.full_name || '');
+  const [isSuperuser, setIsSuperuser] = useState(user.is_superuser);
+  const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (open) {
+      setEmail(user.email);
+      setFullName(user.full_name || '');
+      setIsSuperuser(user.is_superuser);
+      setPassword('');
+      setError('');
+    }
+  }, [open, user]);
+
+  if (!open) return null;
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSubmitting(true);
+    try {
+      const updates: any = {
+        email: email.trim(),
+        full_name: fullName.trim() || null,
+        is_superuser: isSuperuser,
+      };
+      if (password.trim()) {
+        updates.password = password;
+      }
+      await usersAdminService.updateUser(user.id, updates);
+      onUpdated();
+    } catch (e: any) {
+      setError(extractErrorMessage(e, 'Failed to update user'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl w-full max-w-md shadow-xl overflow-hidden">
+        <div className="flex items-center justify-between p-5 border-b">
+          <h2 className="text-lg font-semibold">Edit User Profile</h2>
+          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <form onSubmit={submit}>
+          <div className="p-5 space-y-4">
+            {error && <Alert type="error" message={error} />}
+            
+            <div>
+              <label className="text-xs font-medium text-gray-700 uppercase tracking-wide">
+                Email Address
+              </label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-gray-700 uppercase tracking-wide">
+                Full Name
+              </label>
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-gray-700 uppercase tracking-wide">
+                Change Password (optional)
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                placeholder="Leave blank to keep current"
+              />
+            </div>
+
+            <label className="flex items-center gap-2 cursor-pointer pt-2">
+              <input
+                type="checkbox"
+                checked={isSuperuser}
+                onChange={(e) => setIsSuperuser(e.target.checked)}
+                className="rounded text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm font-medium text-gray-700">Grant Superuser status</span>
+            </label>
+          </div>
+          <div className="flex justify-end gap-2 p-4 bg-gray-50 border-t">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="btn-primary px-6 py-2 text-sm disabled:opacity-50"
+            >
+              {submitting ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function DeleteUserModal({
+  open,
+  onClose,
+  onConfirm,
+  email,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  email: string;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+
+  if (!open) return null;
+
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    await onConfirm();
+    setSubmitting(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl w-full max-w-sm shadow-xl overflow-hidden">
+        <div className="p-6 text-center">
+          <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4">
+            <Trash2 className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-semibold text-gray-900">Delete User</h2>
+          <p className="text-sm text-gray-500 mt-2">
+            Are you sure you want to delete user <strong>{email}</strong>? This action cannot be undone.
+          </p>
+        </div>
+        <div className="flex border-t">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition border-r"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={submitting}
+            className="flex-1 px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 transition disabled:opacity-50"
+          >
+            {submitting ? 'Deleting...' : 'Yes, Delete'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

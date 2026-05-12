@@ -10,6 +10,7 @@ import ResetPassword from '@/pages/ResetPassword';
 import VerifyEmail from '@/pages/VerifyEmail';
 import SocialCallback from '@/pages/SocialCallback';
 import SocialLogin from '@/pages/SocialLogin';
+import LandingPage from '@/pages/LandingPage';
 
 // Auth-required (end-user) pages
 import Dashboard from '@/pages/Dashboard';
@@ -18,25 +19,22 @@ import Sessions from '@/pages/Sessions';
 import Security from '@/pages/Security';
 import Applications from '@/pages/Applications';
 import OAuthConsent from '@/pages/OAuthConsent';
-import AppLanding from '@/pages/AppLanding';
-import AppCallback from '@/pages/AppCallback';
-import AppDashboard from '@/pages/AppDashboard';
-
 // Super-admin pages
 import SuperAdminDashboard from '@/pages/admin/SuperAdminDashboard';
 import UsersAdmin from '@/pages/admin/UsersAdmin';
 import ClientsAdmin from '@/pages/admin/ClientsAdmin';
-import RolesAdmin from '@/pages/admin/RolesAdmin';
-import PermissionsAdmin from '@/pages/admin/PermissionsAdmin';
+import RolesPermissionsAdmin from '@/pages/admin/RolesPermissionsAdmin';
 import SessionsAdmin from '@/pages/admin/SessionsAdmin';
-import AuditLogs from '@/pages/admin/AuditLogs';
 import SecurityCenter from '@/pages/admin/SecurityCenter';
 import ProvidersAdmin from '@/pages/admin/ProvidersAdmin';
 import ReportsAdmin from '@/pages/admin/ReportsAdmin';
 import SettingsAdmin from '@/pages/admin/SettingsAdmin';
+import UserDetail from '@/pages/admin/UserDetail';
+import CreateUser from '@/pages/admin/CreateUser';
 
 // App-admin pages
 import AppAdminDashboard from '@/pages/admin/AppAdminDashboard';
+import AppAdminClients from '@/pages/admin/AppAdminClients';
 
 // Layout guards
 import ProtectedRoute from './ProtectedRoute';
@@ -67,11 +65,6 @@ export default function AppRouter() {
           <ProtectedRoute><OAuthConsent /></ProtectedRoute>
         } />
 
-        {/* Sub-app integration (simulated apps inside the SPA) */}
-        <Route path="/apps/landing" element={<AppLanding />} />
-        <Route path="/apps/callback" element={<AppCallback />} />
-        <Route path="/apps/dashboard" element={<AppDashboard />} />
-
         {/* ── Authenticated — shared AppShell ──────────────────────── */}
         <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
 
@@ -93,6 +86,16 @@ export default function AppRouter() {
               <UsersAdmin />
             </RoleGate>
           } />
+          <Route path="/admin/users/create" element={
+            <RoleGate requireRoles={['super_admin']} fallback="/dashboard">
+              <CreateUser />
+            </RoleGate>
+          } />
+          <Route path="/admin/users/:userId" element={
+            <RoleGate requireRoles={['super_admin']} fallback="/dashboard">
+              <UserDetail />
+            </RoleGate>
+          } />
           <Route path="/admin/clients" element={
             <RoleGate requireRoles={['super_admin']} fallback="/dashboard">
               <ClientsAdmin />
@@ -100,22 +103,13 @@ export default function AppRouter() {
           } />
           <Route path="/admin/roles" element={
             <RoleGate requireRoles={['super_admin']} fallback="/dashboard">
-              <RolesAdmin />
+              <RolesPermissionsAdmin />
             </RoleGate>
           } />
-          <Route path="/admin/permissions" element={
-            <RoleGate requireRoles={['super_admin']} fallback="/dashboard">
-              <PermissionsAdmin />
-            </RoleGate>
-          } />
+          <Route path="/admin/permissions" element={<Navigate to="/admin/roles" replace />} />
           <Route path="/admin/sessions" element={
             <RoleGate requireRoles={['super_admin']} fallback="/dashboard">
               <SessionsAdmin />
-            </RoleGate>
-          } />
-          <Route path="/admin/audit-logs" element={
-            <RoleGate requireRoles={['super_admin']} fallback="/dashboard">
-              <AuditLogs />
             </RoleGate>
           } />
           <Route path="/admin/security" element={
@@ -147,13 +141,13 @@ export default function AppRouter() {
           } />
           <Route path="/app-admin/clients" element={
             <RoleGate requireRoles={['app_admin', 'super_admin']} fallback="/dashboard">
-              <AppAdminDashboard />
+              <AppAdminClients />
             </RoleGate>
           } />
         </Route>
 
-        {/* ── Default landing → role-based redirect ────────────────── */}
-        <Route path="/"  element={<RootRedirect />} />
+        {/* ── Default landing ── */}
+        <Route path="/"  element={<LandingPage />} />
         <Route path="*"  element={<RootRedirect />} />
       </Routes>
     </BrowserRouter>

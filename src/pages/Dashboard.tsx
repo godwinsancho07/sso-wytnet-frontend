@@ -217,15 +217,15 @@ function StatCard({
   icon: React.ReactNode; label: string; value: string; sub: string; ok?: boolean;
 }) {
   return (
-    <div className="card flex items-start gap-3">
-      <div className="rounded-xl bg-primary-50 text-primary-600 p-3 shrink-0">{icon}</div>
+    <div className="card flex items-start gap-4 p-5">
+      <div className="rounded-xl bg-primary-50 text-primary-600 p-3.5 shrink-0">{icon}</div>
       <div className="min-w-0">
-        <p className="text-xs text-gray-500">{label}</p>
-        <p className="font-semibold text-gray-900">{value}</p>
-        <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5 truncate">
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</p>
+        <p className="text-xl font-bold text-gray-900 mt-0.5">{value}</p>
+        <p className="text-xs text-gray-500 flex items-center gap-1.5 mt-1 truncate">
           {ok !== undefined && (ok
-            ? <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />
-            : <AlertCircle className="w-3 h-3 text-amber-500 shrink-0" />)}
+            ? <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
+            : <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />)}
           <span className="truncate">{sub}</span>
         </p>
       </div>

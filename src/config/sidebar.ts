@@ -7,7 +7,7 @@
  * Core principle: Role determines dashboard. Permission determines actions.
  */
 import {
-  Home, Users, Briefcase, Lock, FileText, Activity, Shield,
+  Home, Users, Briefcase, Lock, Activity, Shield,
   AlertTriangle, BarChart3, Link2, Settings, KeySquare, Globe,
   BarChart2, Layers,
 } from 'lucide-react';
@@ -29,9 +29,7 @@ export const SIDEBAR_BY_ROLE: Record<string, SidebarItem[]> = {
     { to: '/admin/users',       label: 'Users',             icon: Users,         section: 'main' },
     { to: '/admin/clients',     label: 'OAuth Clients',     icon: Briefcase,     section: 'main' },
     { to: '/admin/roles',       label: 'Roles',             icon: Lock,          section: 'main' },
-    { to: '/admin/permissions', label: 'Permissions',       icon: Layers,        section: 'main' },
     { to: '/admin/sessions',    label: 'Sessions',          icon: Activity,      section: 'main' },
-    { to: '/admin/audit-logs',  label: 'Audit Logs',        icon: FileText,      section: 'main' },
     { to: '/admin/security',    label: 'Security Center',   icon: Shield,        section: 'main' },
     { to: '/admin/providers',   label: 'Social Providers',  icon: Globe,         section: 'main' },
     { to: '/admin/reports',     label: 'Reports',           icon: BarChart2,     section: 'main' },
@@ -45,6 +43,7 @@ export const SIDEBAR_BY_ROLE: Record<string, SidebarItem[]> = {
   app_admin: [
     { to: '/app-admin/dashboard', label: 'Overview',     icon: Home,         section: 'main' },
     { to: '/app-admin/clients',   label: 'My Apps',      icon: Briefcase,    section: 'main' },
+    { to: '/applications',        label: 'Connected Apps', icon: Link2,       section: 'main' },
     // Self
     { to: '/profile',             label: 'Profile',      icon: Users,        section: 'self' },
     { to: '/sessions',            label: 'Sessions',     icon: Activity,     section: 'self' },
@@ -62,17 +61,27 @@ export const SIDEBAR_BY_ROLE: Record<string, SidebarItem[]> = {
 
 /**
  * Pick the sidebar matching the highest-privileged role the user has.
- * Order: super_admin > app_admin > user.
+ * Order: is_super_admin > app_admin > user.
  */
-export function getSidebarByRole(roles: string[]): SidebarItem[] {
-  if (roles.includes('super_admin')) return SIDEBAR_BY_ROLE.super_admin;
-  if (roles.includes('app_admin'))   return SIDEBAR_BY_ROLE.app_admin;
+export function getSidebarByRole(permissions: { roles: string[]; is_super_admin?: boolean } | null): SidebarItem[] {
+  if (!permissions) return SIDEBAR_BY_ROLE.user;
+  if (permissions.is_super_admin || permissions.roles.includes('super_admin')) {
+    return SIDEBAR_BY_ROLE.super_admin;
+  }
+  if (permissions.roles.includes('app_admin')) {
+    return SIDEBAR_BY_ROLE.app_admin;
+  }
   return SIDEBAR_BY_ROLE.user;
 }
 
 /** Brand label for the sidebar header */
-export function getRoleLabel(roles: string[]): string {
-  if (roles.includes('super_admin')) return 'Platform Admin';
-  if (roles.includes('app_admin'))   return 'App Admin';
+export function getRoleLabel(permissions: { roles: string[]; is_super_admin?: boolean } | null): string {
+  if (!permissions) return 'My Account';
+  if (permissions.is_super_admin || permissions.roles.includes('super_admin')) {
+    return 'Platform Admin';
+  }
+  if (permissions.roles.includes('app_admin')) {
+    return 'App Admin';
+  }
   return 'My Account';
 }

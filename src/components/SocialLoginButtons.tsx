@@ -7,9 +7,9 @@ const PROVIDERS = [
   { name: 'linkedin', label: 'LinkedIn', color: 'hover:bg-sky-50 border-gray-300' },
 ] as const;
 
-export default function SocialLoginButtons() {
+export default function SocialLoginButtons({ next }: { next?: string }) {
   const handleSocialLogin = (provider: string) => {
-    window.location.href = authService.getSocialLoginUrl(provider);
+    window.location.href = authService.getSocialLoginUrl(provider, next);
   };
 
   return (

@@ -71,6 +71,15 @@ export interface AppOverview {
   generated_at: string;
 }
 
+export interface AdminGlobalOverview {
+  total_apps: number;
+  total_users: number;
+  active_tokens: number;
+  tokens_24h: number;
+  tokens_7d: number;
+  generated_at: string;
+}
+
 export interface AppUser {
   user_id: string;
   email: string;
@@ -88,10 +97,15 @@ export interface AuthorizedApp {
   token_count: number;
   scopes?: string[];
   url?: string;
+  redirect_uris?: string[]; // Add this
   last_used?: string | null;
 }
 
 export const appAdminService = {
+  async getGlobalMetrics(): Promise<AdminGlobalOverview> {
+    const { data } = await api.get<AdminGlobalOverview>('/v1/me/admin/overview');
+    return data;
+  },
   async getMetrics(clientDbId: string): Promise<AppOverview> {
     const { data } = await api.get<AppOverview>(`/v1/clients/${clientDbId}/metrics`);
     return data;
@@ -138,6 +152,7 @@ export interface AdminUserListItem {
   providers: string[];
   active_sessions: number;
   connected_apps: number;
+  registered_apps: number;
 }
 
 export interface AdminUserListResponse {
@@ -200,16 +215,28 @@ export const usersAdminService = {
     status?: UserStatusFilter,
     offset = 0,
     limit = 50,
+    role?: string,
   ): Promise<AdminUserListResponse> {
     const params: Record<string, string | number> = { offset, limit };
     if (q) params.q = q;
     if (status) params.status = status;
+    if (role) params.role = role;
     const { data } = await api.get<AdminUserListResponse>('/v1/users', { params });
     return data;
   },
 
   async getUserDetail(userId: string): Promise<AdminUserDetail> {
     const { data } = await api.get<AdminUserDetail>(`/v1/users/${userId}/detail`);
+    return data;
+  },
+
+  async createUser(payload: any): Promise<AdminUserListItem> {
+    const { data } = await api.post<AdminUserListItem>('/v1/users', payload);
+    return data;
+  },
+
+  async updateUser(userId: string, payload: any): Promise<AdminUserListItem> {
+    const { data } = await api.patch<AdminUserListItem>(`/v1/users/${userId}`, payload);
     return data;
   },
 
@@ -223,6 +250,10 @@ export const usersAdminService = {
 
   async forceLogout(userId: string): Promise<void> {
     await api.post(`/v1/users/${userId}/force-logout`);
+  },
+
+  async remove(userId: string): Promise<void> {
+    await api.delete(`/v1/users/${userId}`);
   },
 
   async adminResetPassword(userId: string): Promise<{ message: string }> {
@@ -244,6 +275,11 @@ export const usersAdminService = {
 
   async listRoles(): Promise<AdminUserDetailRole[]> {
     const { data } = await api.get<AdminUserDetailRole[]>('/v1/roles');
+    return data;
+  },
+
+  async getUserConnectedApps(userId: string): Promise<AuthorizedApp[]> {
+    const { data } = await api.get<AuthorizedApp[]>(`/v1/users/${userId}/connected-apps`);
     return data;
   },
 };
@@ -429,6 +465,7 @@ export interface OAuthClientRead {
   is_confidential: boolean;
   require_pkce: boolean;
   created_at: string;
+  admin_emails: string[];
 }
 
 export interface OAuthClientWithSecret extends OAuthClientRead {

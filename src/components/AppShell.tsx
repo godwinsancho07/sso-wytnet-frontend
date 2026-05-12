@@ -14,8 +14,8 @@ export default function AppShell() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const roles = permissions?.roles || [];
-  const items = getSidebarByRole(roles);
-  const brandLabel = getRoleLabel(roles);
+  const items = getSidebarByRole(permissions);
+  const brandLabel = getRoleLabel(permissions);
   const main = items.filter((i) => i.section === 'main');
   const self = items.filter((i) => i.section === 'self');
   const homeRoute = main[0]?.to || '/dashboard';
@@ -37,7 +37,7 @@ export default function AppShell() {
     window.location.href = '/login';
   };
 
-  const isSuperAdmin = roles.includes('super_admin');
+  const isSuperAdmin = permissions?.is_super_admin || roles.includes('super_admin');
   const isAppAdmin = roles.includes('app_admin');
 
   return (
@@ -169,11 +169,11 @@ export default function AppShell() {
 
           <div className="flex-1 lg:flex-none" />
 
-          <RoleBadge roles={roles} />
+          <RoleBadge permissions={permissions} />
         </header>
 
         {/* Page content */}
-        <main className="px-4 lg:px-8 py-6 lg:py-8 max-w-7xl mx-auto">
+        <main className="px-4 lg:px-6 py-6 lg:py-8 max-w-[1600px] mx-auto">
           <Outlet />
         </main>
       </div>
@@ -232,9 +232,9 @@ function Avatar({ user }: { user: any }) {
   );
 }
 
-function RoleBadge({ roles }: { roles: string[] }) {
-  const isSuper = roles.includes('super_admin');
-  const isApp = roles.includes('app_admin');
+function RoleBadge({ permissions }: { permissions: any }) {
+  const isSuper = permissions?.is_super_admin || permissions?.roles?.includes('super_admin');
+  const isApp = permissions?.roles?.includes('app_admin');
   if (!isSuper && !isApp) return null;
 
   return (

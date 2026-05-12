@@ -93,8 +93,10 @@ export const authService = {
     await api.post('/auth/change-password', { current_password, new_password });
   },
 
-  getSocialLoginUrl(provider: string): string {
-    return `${API_URL}/auth/${provider}`;
+  getSocialLoginUrl(provider: string, next?: string): string {
+    let url = `${API_URL}/auth/${provider}`;
+    if (next) url += `?next=${encodeURIComponent(next)}`;
+    return url;
   },
 };
 
