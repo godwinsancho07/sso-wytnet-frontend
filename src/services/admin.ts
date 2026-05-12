@@ -496,30 +496,27 @@ export const clientsAdminService = {
     return data;
   },
 
-  /** Fetch personalized integration markdown for this client. */
-  async getIntegrationDocs(clientDbId: string): Promise<string> {
-    const { data } = await api.get<any>(`/v1/clients/${clientDbId}/integration-docs`);
-    // If it's already a string, return it. If it's an object (FastAPI JSON), return as string.
-    return typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-  },
-
   /** Trigger a browser download of the integration markdown. */
   async downloadIntegrationDocs(
     clientDbId: string,
     appName: string,
   ): Promise<void> {
-    const md = await this.getIntegrationDocs(clientDbId);
-    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    const response = await api.get(`/v1/clients/${clientDbId}/integration-docs`, {
+      params: { download: true },
+      responseType: 'blob',
+    });
+
+    const blob = new Blob([response.data], { type: 'text/markdown;charset=utf-8' });
     const safeName =
       appName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'client';
-    const url = URL.createObjectURL(blob);
+    const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `${safeName}-sso-integration.md`;
     document.body.appendChild(a);
     a.click();
     a.remove();
-    URL.revokeObjectURL(url);
+    window.URL.revokeObjectURL(url);
   },
   async listAdmins(clientDbId: string): Promise<ClientAdminUser[]> {
     const { data } = await api.get<ClientAdminUser[]>(
