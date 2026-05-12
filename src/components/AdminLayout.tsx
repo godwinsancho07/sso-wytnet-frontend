@@ -8,9 +8,8 @@ export default function AdminLayout() {
   const { user, permissions, logout } = useAuthStore();
   const navigate = useNavigate();
 
-  const roles = permissions?.roles || [];
-  const items = getSidebarByRole(roles);
-  const brandLabel = getRoleLabel(roles);
+  const items = getSidebarByRole(permissions);
+  const brandLabel = getRoleLabel(permissions);
   const homeRoute = items.find((i) => i.section === 'main')?.to || '/dashboard';
 
   const handleLogout = async () => {

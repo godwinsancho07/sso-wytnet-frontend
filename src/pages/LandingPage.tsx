@@ -33,7 +33,7 @@ export default function LandingPage() {
       setFetchingConnected(true);
       api.get('/v1/users/me/connected-apps')
         .then(({ data }) => {
-          const ids = new Set(data.map((a: any) => a.id));
+          const ids = new Set<string>(data.map((a: any) => String(a.id)));
           setConnectedAppIds(ids);
         })
         .finally(() => setFetchingConnected(false));
