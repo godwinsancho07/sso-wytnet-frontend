@@ -156,6 +156,6 @@ export default function AppRouter() {
 
 function RootRedirect() {
   const { isAuthenticated, primaryDashboard } = useAuthStore();
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isAuthenticated) return <Navigate to="/" replace />;
   return <Navigate to={primaryDashboard()} replace />;
 }
