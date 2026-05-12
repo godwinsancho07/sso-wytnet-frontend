@@ -21,7 +21,7 @@ export default function RoleGate({
   const { isAuthenticated, permissions, hasPermission, hasRole } = useAuthStore();
 
   if (!isAuthenticated && !storage.getAccessToken()) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   // Permissions still loading — let page render; API will 403 if needed

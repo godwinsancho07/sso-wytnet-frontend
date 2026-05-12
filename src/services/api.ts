@@ -63,8 +63,8 @@ api.interceptors.response.use(
     const refreshToken = storage.getRefreshToken();
     if (!refreshToken) {
       storage.clearTokens();
-      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
-        window.location.href = '/login';
+      if (!['/', '/login', '/register'].includes(window.location.pathname)) {
+        window.location.href = '/';
       }
       return Promise.reject(error);
     }
@@ -81,8 +81,8 @@ api.interceptors.response.use(
     } catch (refreshError) {
       processQueue(refreshError, null);
       storage.clearTokens();
-      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
-        window.location.href = '/login';
+      if (!['/', '/login', '/register'].includes(window.location.pathname)) {
+        window.location.href = '/';
       }
       return Promise.reject(refreshError);
     } finally {
