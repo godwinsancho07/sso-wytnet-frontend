@@ -394,18 +394,7 @@ function SecretRevealModal({ client, onClose, title }: SecretRevealProps) {
           >
             Download integration docs
           </button>
-          <button
-            onClick={async () => {
-              try {
-                await clientsAdminService.downloadNextJsIntegrationDocs(client.client_id, client.app_name, client.redirect_uris, client.client_secret);
-              } catch {
-                /* noop */
-              }
-            }}
-            className="bg-black text-white text-xs px-3 py-1.5 rounded-lg hover:bg-gray-800 transition-colors"
-          >
-            Download Next.js Integration
-          </button>
+
           <div className="flex-1" />
           <button onClick={onClose} className="btn-primary text-sm">
             I've saved it
@@ -812,18 +801,7 @@ function ClientEditDrawer({
               >
                 <FileDown className="w-3 h-3" /> Download docs
               </button>
-              <button
-                onClick={async () => {
-                  try {
-                    await clientsAdminService.downloadNextJsIntegrationDocs(client.client_id, client.app_name, redirectUris.filter(u => u.trim()));
-                  } catch (e) {
-                    onError(extractErrorMessage(e, 'Could not download Next.js docs'));
-                  }
-                }}
-                className="bg-black text-white text-xs px-3 py-1.5 rounded-lg hover:bg-gray-800 transition-colors inline-flex items-center gap-1"
-              >
-                <FileDown className="w-3 h-3" /> Next.js Integration
-              </button>
+
               <span className="text-[10px] text-gray-400 self-center">
                 Markdown — share with the team integrating this app
               </span>
