@@ -11,6 +11,7 @@ import VerifyEmail from '@/pages/VerifyEmail';
 import SocialCallback from '@/pages/SocialCallback';
 import SocialLogin from '@/pages/SocialLogin';
 import LandingPage from '@/pages/LandingPage';
+import ExploreApps from '@/pages/ExploreApps';
 
 // Auth-required (end-user) pages
 import Dashboard from '@/pages/Dashboard';
@@ -59,6 +60,7 @@ export default function AppRouter() {
         <Route path="/verify-email"    element={<VerifyEmail />} />
         <Route path="/social-callback" element={<SocialCallback />} />
         <Route path="/social-login"    element={<SocialLogin />} />
+        <Route path="/explore"         element={<ExploreApps />} />
 
         {/* OAuth consent — auth required, no shell */}
         <Route path="/consent/authorize" element={

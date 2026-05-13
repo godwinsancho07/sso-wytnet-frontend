@@ -18,7 +18,10 @@ export default function LandingPage() {
     const fetchApps = async () => {
       try {
         const { data } = await api.get<OAuthClientRead[]>('/v1/clients/public');
-        setApps(data.slice(0, 4));
+        const filtered = data.filter(app => 
+          !app.app_name.toLowerCase().includes('internal sso')
+        );
+        setApps(filtered.slice(0, 4));
       } catch (err) {
         console.error('Failed to fetch public apps:', err);
       } finally {
@@ -111,6 +114,7 @@ export default function LandingPage() {
             
             <div className="hidden md:flex items-center gap-10 text-[15px] font-medium text-gray-500">
               <a href="#features" className="hover:text-primary-600 transition-colors">Platform</a>
+              <Link to="/explore" className="hover:text-primary-600 transition-colors">Explore Apps</Link>
             </div>
 
             <div className="flex items-center gap-5">
@@ -148,91 +152,95 @@ export default function LandingPage() {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <div className="text-left space-y-8 relative">
-              <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white shadow-sm border border-gray-100 text-primary-700 text-xs font-bold tracking-wider uppercase">
-                <span className="flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-primary-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary-500"></span>
-                </span>
-                Next-Gen Identity Infrastructure
-              </div>
-              
-              <h1 className="text-5xl md:text-7xl font-black text-gray-900 tracking-tight leading-[1.1]">
-                Secure access for <br />
-                <span className="relative inline-block">
-                  <span className="relative z-10 text-transparent bg-clip-text bg-gradient-to-r from-primary-600 via-blue-600 to-primary-500">every identity.</span>
-                  <div className="absolute -bottom-2 left-0 w-full h-3 bg-primary-100/60 -rotate-1 -z-10 rounded-full blur-[2px]" />
-                </span>
-              </h1>
-              
-              <p className="text-xl text-gray-500 max-w-xl leading-relaxed font-medium">
-                The only platform that combines seamless single sign-on with multi-layer cryptographic security to protect your users and data.
-              </p>
-              
-              <div className="flex flex-col sm:flex-row items-center gap-5 pt-4">
-                <Link 
-                  to={isAuthenticated ? primaryDashboard() : "/register"} 
-                  className="w-full sm:w-auto bg-primary-600 text-white px-10 py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 hover:bg-primary-700 transition-all shadow-2xl shadow-primary-200 hover:-translate-y-1 active:translate-y-0 group"
-                >
-                  {isAuthenticated ? "Go to Dashboard" : "Start Building Free"} 
-                  <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </div>
+          <div className="max-w-4xl mx-auto text-center space-y-10 relative">
+            <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white shadow-sm border border-gray-100 text-primary-700 text-xs font-bold tracking-wider uppercase">
+              <span className="flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-primary-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary-500"></span>
+              </span>
+              Next-Gen Identity Infrastructure
             </div>
+            
+            <h1 className="text-5xl md:text-8xl font-black text-gray-900 tracking-tight leading-[1.05]">
+              Secure access for <br />
+              <span className="relative inline-block">
+                <span className="relative z-10 text-transparent bg-clip-text bg-gradient-to-r from-primary-600 via-blue-600 to-primary-500">every identity.</span>
+                <div className="absolute -bottom-2 left-0 w-full h-3 bg-primary-100/60 -rotate-1 -z-10 rounded-full blur-[2px]" />
+              </span>
+            </h1>
+            
+            <p className="text-xl md:text-2xl text-gray-500 max-w-2xl mx-auto leading-relaxed font-medium">
+              The only platform that combines seamless single sign-on with multi-layer cryptographic security to protect your users and data.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-5 pt-4">
+              <Link 
+                to={isAuthenticated ? primaryDashboard() : "/register"} 
+                className="w-full sm:w-auto bg-primary-600 text-white px-10 py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 hover:bg-primary-700 transition-all shadow-2xl shadow-primary-200 hover:-translate-y-1 active:translate-y-0 group"
+              >
+                {isAuthenticated ? "Go to Dashboard" : "Get Started for Free"} 
+                <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
 
-            {/* App Showcase Column */}
-            <div className="relative">
-                <div className="absolute -inset-4 bg-gradient-to-tr from-primary-50 to-blue-50/50 rounded-[48px] -z-10 blur-2xl" />
-                <div className="bg-white/40 backdrop-blur-md border border-white/60 p-8 rounded-[48px] shadow-2xl shadow-primary-100/50">
-                    <div className="flex justify-between items-center mb-8">
-                        <h3 className="font-bold text-gray-900">Connected Ecosystem</h3>
-                        <span className="text-xs font-bold text-primary-600 px-2.5 py-1 bg-primary-50 rounded-full">Live Apps</span>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                        {loading ? (
-                            Array(4).fill(0).map((_, i) => (
-                                <div key={i} className="h-32 bg-gray-50 animate-pulse rounded-3xl" />
-                            ))
-                        ) : apps.length > 0 ? (
-                            apps.map((app) => {
-                                const isConnected = connectedAppIds.has(app.id);
-                                return (
-                                    <div key={app.id} className="group bg-white p-5 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <div className="w-10 h-10 bg-primary-50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                                                <Shield className="w-5 h-5 text-primary-600" />
-                                            </div>
-                                            {isConnected && (
-                                                <span className="text-[9px] font-bold uppercase tracking-widest text-green-600 bg-green-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                                    <CheckCircle2 className="w-2.5 h-2.5" /> Connected
-                                                </span>
-                                            )}
-                                        </div>
-                                        <h4 className="font-bold text-gray-900 text-sm truncate">{app.app_name}</h4>
-                                        <p className="text-[10px] text-gray-400 font-medium mb-4">Official App</p>
-                                        <button 
-                                            onClick={() => handleLaunchApp(app)}
-                                            className={clsx(
-                                                "text-[11px] font-bold flex items-center gap-1 group-hover:gap-2 transition-all",
-                                                isConnected ? "text-green-600" : "text-primary-600"
-                                            )}
-                                        >
-                                            {isConnected ? "Open Dashboard" : "Launch App"} <ArrowRight className="w-3 h-3" />
-                                        </button>
-                                    </div>
-                                );
-                            })
-                        ) : (
-                            <div className="col-span-2 text-center py-12 text-gray-400">
-                                <Users className="w-8 h-8 mx-auto mb-3 opacity-20" />
-                                <p className="text-sm font-medium">No public apps registered yet</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
+      {/* App Showcase Section */}
+      <section className="py-20 bg-white relative">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-12">
+            <div className="space-y-3">
+              <h2 className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight">Connected Ecosystem</h2>
+              <p className="text-lg text-gray-500 font-medium">Instantly access any application in our secure network.</p>
             </div>
+            <Link to="/explore" className="text-primary-600 font-bold flex items-center gap-2 group hover:underline">
+              Explore All Apps <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {loading ? (
+              Array(4).fill(0).map((_, i) => (
+                <div key={i} className="h-48 bg-gray-50 animate-pulse rounded-[32px]" />
+              ))
+            ) : apps.length > 0 ? (
+              apps.map((app) => {
+                const isConnected = connectedAppIds.has(app.id);
+                return (
+                  <div key={app.id} className="group bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-300">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="w-14 h-14 bg-primary-50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                        <Shield className="w-7 h-7 text-primary-600" />
+                      </div>
+                      {isConnected && (
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-green-600 bg-green-50 px-3 py-1 rounded-full flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3 h-3" /> Connected
+                        </span>
+                      )}
+                    </div>
+                    <h4 className="font-black text-gray-900 text-lg mb-1 truncate">{app.app_name}</h4>
+                    <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-6">Official Partner</p>
+                    <button 
+                      onClick={() => handleLaunchApp(app)}
+                      className={clsx(
+                        "w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all",
+                        isConnected 
+                          ? "bg-green-600 text-white shadow-lg shadow-green-100 hover:bg-green-700" 
+                          : "bg-gray-900 text-white hover:bg-gray-800"
+                      )}
+                    >
+                      {isConnected ? "Open Dashboard" : "Launch App"} <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="col-span-full text-center py-20 bg-gray-50 rounded-[40px] border-2 border-dashed border-gray-200">
+                <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <p className="text-lg font-bold text-gray-400">No public apps registered yet</p>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -280,49 +288,88 @@ export default function LandingPage() {
       </section>
 
       {/* CTA Section */}
-      <section id="developers" className="py-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="bg-white rounded-[48px] p-8 md:p-16 text-center relative overflow-hidden border border-gray-100 shadow-xl">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-primary-100/20 rounded-full blur-[100px]" />
-                <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-50/10 rounded-full blur-[100px]" />
-                
-                <div className="relative z-10 space-y-6">
-                    <h2 className="text-4xl md:text-6xl font-black text-gray-900 leading-tight">Ready to secure your <br />next big project?</h2>
-                    <p className="text-xl text-gray-500 max-w-2xl mx-auto">Join thousands of developers building secure applications with WytPass.</p>
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-                        <Link to="/register" className="bg-primary-600 text-white px-10 py-5 rounded-2xl font-black text-lg hover:bg-primary-700 transition-all active:scale-95 shadow-lg shadow-primary-200">
-                            Get Started for Free
-                        </Link>
-                        <Link to="/login" className="text-gray-900 font-bold flex items-center gap-2 group text-lg">
-                            Sign in to existing account <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                        </Link>
-                    </div>
+      <section id="developers" className="py-24 bg-white border-t border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <div className="relative z-10 space-y-12">
+                <div className="space-y-4">
+                    <h2 className="text-5xl md:text-8xl font-black text-gray-900 tracking-tight leading-[1.05]">
+                        Ready to secure <br />your project
+                    </h2>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
+                    <Link 
+                      to="/register" 
+                      className="w-full sm:w-auto bg-primary-600 text-white px-12 py-5 rounded-2xl font-black text-xl hover:bg-primary-700 transition-all active:scale-95 flex items-center justify-center gap-3 shadow-2xl shadow-primary-200"
+                    >
+                        Get Started for Free <ArrowRight className="w-6 h-6" />
+                    </Link>
+                    <Link 
+                      to="/login" 
+                      className="w-full sm:w-auto text-gray-900 font-bold flex items-center justify-center gap-3 group text-xl px-12 py-5 rounded-2xl border border-gray-200 hover:bg-gray-50 transition-all shadow-sm"
+                    >
+                        Sign in to account <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+                    </Link>
                 </div>
             </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-12 border-t border-gray-100 bg-white">
+      <footer className="py-20 bg-white border-t border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-8">
-                <div className="flex items-center gap-2.5 group">
-                    <div className="bg-primary-50 p-2 rounded-lg">
-                        <Shield className="w-5 h-5 text-primary-600" />
-                    </div>
-                    <span className="text-xl font-bold text-gray-900">WytPass</span>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-20">
+            {/* About Us */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-2.5">
+                <div className="bg-primary-600 p-1.5 rounded-lg">
+                  <Shield className="w-5 h-5 text-white" />
                 </div>
-                
-                <p className="text-sm text-gray-400 font-medium order-3 md:order-2">
-                    © 2026 Wytnet Identity Systems. Built for secure engineering.
-                </p>
-
-                <div className="flex gap-8 order-2 md:order-3">
-                    <a href="https://github.com" className="text-sm text-gray-500 hover:text-primary-600 font-bold transition-colors">GitHub</a>
-                    <a href="#" className="text-sm text-gray-500 hover:text-primary-600 font-bold transition-colors">Twitter</a>
-                    <a href="#" className="text-sm text-gray-500 hover:text-primary-600 font-bold transition-colors">LinkedIn</a>
-                </div>
+                <span className="text-xl font-bold tracking-tight text-gray-900">WytPass</span>
+              </div>
+              <p className="text-gray-500 text-sm leading-relaxed font-medium">
+                Next-generation identity infrastructure providing seamless single sign-on with multi-layer cryptographic security. We protect your users and data so you can focus on building what matters.
+              </p>
             </div>
+
+            {/* Quick Links */}
+            <div className="space-y-6">
+              <h3 className="text-lg font-bold tracking-tight text-gray-900">Platform</h3>
+              <ul className="space-y-4 text-sm text-gray-500 font-semibold">
+                <li><Link to="/explore" className="hover:text-primary-600 transition-colors">App Directory</Link></li>
+                <li><a href="#features" className="hover:text-primary-600 transition-colors">Security Features</a></li>
+                <li><a href="#" className="hover:text-primary-600 transition-colors">Developer Portal</a></li>
+                <li><a href="#" className="hover:text-primary-600 transition-colors">Documentation</a></li>
+              </ul>
+            </div>
+
+            {/* Contact & Support */}
+            <div className="space-y-6">
+              <h3 className="text-lg font-bold tracking-tight text-gray-900">Get in Touch</h3>
+              <ul className="space-y-5 text-sm text-gray-500 font-semibold">
+                <li className="flex gap-3">
+                  <Globe className="w-5 h-5 text-primary-500" />
+                  <span>wytnet.com</span>
+                </li>
+                <li className="flex gap-6 pt-2">
+                    <a href="#" className="hover:text-primary-600 transition-colors"><Activity className="w-5 h-5" /></a>
+                    <a href="#" className="hover:text-primary-600 transition-colors"><Users className="w-5 h-5" /></a>
+                    <a href="#" className="hover:text-primary-600 transition-colors"><Layout className="w-5 h-5" /></a>
+                </li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="mt-20 pt-8 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-6">
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+              © 2026 Wytnet Identity Systems. All Rights Reserved.
+            </p>
+            <div className="flex gap-8 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                <a href="#" className="hover:text-primary-600 transition-colors">Privacy Policy</a>
+                <a href="#" className="hover:text-primary-600 transition-colors">Terms of Service</a>
+                <a href="#" className="hover:text-primary-600 transition-colors">Security</a>
+            </div>
+          </div>
         </div>
       </footer>
 

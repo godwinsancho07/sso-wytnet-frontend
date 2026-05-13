@@ -18,10 +18,10 @@ export default function Applications() {
     try {
       if (user?.is_superuser) {
         const data = await clientsAdminService.list();
-        setAdminClients(data);
+        setAdminClients(data.filter(c => !c.app_name.toLowerCase().includes('internal sso')));
       } else {
         const data = await userActivityService.getAuthorizedApps();
-        setAuthorizedApps(data);
+        setAuthorizedApps(data.filter(app => !app.app_name.toLowerCase().includes('internal sso')));
       }
     } catch (e) {
       setError('Failed to load applications');

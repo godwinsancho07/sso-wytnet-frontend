@@ -858,7 +858,8 @@ export default function ClientsAdmin() {
     setLoading(true);
     setError('');
     try {
-      setClients(await clientsAdminService.list());
+      const data = await clientsAdminService.list();
+      setClients(data.filter(c => !c.app_name.toLowerCase().includes('internal sso')));
     } catch (e: any) {
       setError(e.response?.data?.detail || 'Failed to load clients');
     } finally {
@@ -873,12 +874,14 @@ export default function ClientsAdmin() {
   const filtered = useMemo(() => {
     if (!query.trim()) return clients;
     const q = query.toLowerCase();
-    return clients.filter(
-      (c) =>
-        c.app_name.toLowerCase().includes(q) ||
-        c.client_id.toLowerCase().includes(q) ||
-        (c.description || '').toLowerCase().includes(q),
-    );
+    return clients
+      .filter(c => !c.app_name.toLowerCase().includes('internal sso'))
+      .filter(
+        (c) =>
+          c.app_name.toLowerCase().includes(q) ||
+          c.client_id.toLowerCase().includes(q) ||
+          (c.description || '').toLowerCase().includes(q),
+      );
   }, [clients, query]);
 
   return (

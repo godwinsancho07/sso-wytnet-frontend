@@ -33,7 +33,7 @@ export default function AppAdminClients() {
   const loadClients = () => {
     setLoading(true);
     api.get<OwnedClient[]>('/v1/clients')
-      .then((r) => setClients(r.data))
+      .then((r) => setClients(r.data.filter(c => !c.app_name.toLowerCase().includes('internal sso'))))
       .catch(() => {})
       .finally(() => setLoading(false));
   };
@@ -42,10 +42,12 @@ export default function AppAdminClients() {
     loadClients();
   }, []);
 
-  const filtered = clients.filter(c => 
-    c.app_name.toLowerCase().includes(query.toLowerCase()) || 
-    c.client_id.toLowerCase().includes(query.toLowerCase())
-  );
+  const filtered = clients
+    .filter(c => !c.app_name.toLowerCase().includes('internal sso'))
+    .filter(c => 
+      c.app_name.toLowerCase().includes(query.toLowerCase()) || 
+      c.client_id.toLowerCase().includes(query.toLowerCase())
+    );
 
   return (
     <div className="space-y-6">
