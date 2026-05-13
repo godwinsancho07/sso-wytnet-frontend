@@ -753,32 +753,34 @@ function ClientEditDrawer({
                   No admins assigned yet.
                 </span>
               ) : (
-                admins.map((a) => (
-                  <div
-                    key={a.user_id}
-                    className="inline-flex items-center gap-2 bg-gray-100 rounded-full pl-1 pr-2 py-1"
-                  >
-                    {a.avatar_url ? (
-                      <img
-                        src={a.avatar_url}
-                        alt=""
-                        className="w-5 h-5 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-5 h-5 rounded-full bg-gray-300 text-gray-700 text-[9px] font-semibold flex items-center justify-center">
-                        {userInitials(a.email, a.full_name)}
-                      </div>
-                    )}
-                    <span className="text-xs text-gray-800">{a.email}</span>
-                    <button
-                      onClick={() => removeAdmin(a.user_id)}
-                      className="p-0.5 rounded-full hover:bg-gray-200 text-gray-500"
-                      aria-label="Remove admin"
+                admins
+                  .filter((a) => a.email !== 'admin@example.com' || admins.length === 1)
+                  .map((a) => (
+                    <div
+                      key={a.user_id}
+                      className="inline-flex items-center gap-2 bg-gray-100 rounded-full pl-1 pr-2 py-1"
                     >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))
+                      {a.avatar_url ? (
+                        <img
+                          src={a.avatar_url}
+                          alt=""
+                          className="w-5 h-5 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-5 h-5 rounded-full bg-gray-300 text-gray-700 text-[9px] font-semibold flex items-center justify-center">
+                          {userInitials(a.email, a.full_name)}
+                        </div>
+                      )}
+                      <span className="text-xs text-gray-800">{a.email === 'admin@example.com' ? 'System Admin' : a.email}</span>
+                      <button
+                        onClick={() => removeAdmin(a.user_id)}
+                        className="p-0.5 rounded-full hover:bg-gray-200 text-gray-500"
+                        aria-label="Remove admin"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))
               )}
             </div>
           </section>
@@ -987,11 +989,13 @@ export default function ClientsAdmin() {
                   <td className="p-3">
                     <div className="flex flex-col gap-1 max-w-[150px]">
                       {c.admin_emails && c.admin_emails.length > 0 ? (
-                        c.admin_emails.map((email) => (
-                          <span key={email} className="text-xs text-gray-600 truncate" title={email}>
-                            {email}
-                          </span>
-                        ))
+                        c.admin_emails
+                          .filter((email) => email !== 'admin@example.com' || c.admin_emails.length === 1)
+                          .map((email) => (
+                            <span key={email} className="text-xs text-gray-600 truncate" title={email}>
+                              {email === 'admin@example.com' ? 'System Admin' : email}
+                            </span>
+                          ))
                       ) : (
                         <span className="text-xs text-gray-400 italic">No admin</span>
                       )}
