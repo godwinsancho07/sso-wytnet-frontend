@@ -2,6 +2,8 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 COPY package*.json ./
+# Skip downloading Puppeteer's browser to avoid network issues during build
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 RUN npm ci
 COPY . .
 ARG VITE_API_URL
