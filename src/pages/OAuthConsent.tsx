@@ -70,16 +70,16 @@ export default function OAuthConsent() {
           <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-50 rounded-full blur-[120px] opacity-60" />
       </div>
 
-      <div className="w-full max-w-[480px]">
-        <div className="bg-white rounded-[32px] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.08)] border border-gray-100 overflow-hidden">
+      <div className="w-full max-w-[440px]">
+        <div className="bg-white rounded-[24px] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.08)] border border-gray-100 overflow-hidden">
           {/* Header Section */}
-          <div className="p-8 text-center border-b border-gray-50">
-            <div className="flex justify-center items-center gap-6 mb-8">
-              <div className="w-16 h-16 rounded-2xl bg-white shadow-sm border border-gray-100 p-3 flex items-center justify-center">
-                <Shield className="w-8 h-8 text-primary-600" />
+          <div className="p-6 text-center border-b border-gray-50">
+            <div className="flex justify-center items-center gap-4 mb-6">
+              <div className="w-14 h-14 rounded-xl bg-white shadow-sm border border-gray-100 p-2.5 flex items-center justify-center">
+                <Shield className="w-7 h-7 text-primary-600" />
               </div>
-              <ArrowLeftRight className="w-5 h-5 text-gray-300" />
-              <div className="w-16 h-16 rounded-2xl bg-white shadow-sm border border-gray-100 p-3 flex items-center justify-center">
+              <ArrowLeftRight className="w-4 h-4 text-gray-300" />
+              <div className="w-14 h-14 rounded-xl bg-white shadow-sm border border-gray-100 p-2.5 flex items-center justify-center">
                 {clientInfo?.logo_url ? (
                   <img src={clientInfo.logo_url} alt="Logo" className="w-full h-full object-contain" />
                 ) : (
@@ -90,11 +90,11 @@ export default function OAuthConsent() {
               </div>
             </div>
             
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Connect to {clientInfo?.app_name || 'Application'}</h1>
-            <p className="text-gray-500 text-sm font-medium">An application is requesting access to your WytPass account.</p>
+            <h1 className="text-xl font-bold text-gray-900 mb-1">Connect to {clientInfo?.app_name || 'Application'}</h1>
+            <p className="text-gray-500 text-[11px] font-medium px-4">An application is requesting access to your WytPass account.</p>
           </div>
 
-          <div className="p-8 space-y-8">
+          <div className="p-6 space-y-6">
             {error && <Alert type="error" message={error} />}
 
             {/* Account Selector Section */}
@@ -139,10 +139,10 @@ export default function OAuthConsent() {
             <div className="space-y-3 pt-2">
               <button 
                 onClick={approve} 
-                className="btn-primary w-full py-4 text-sm font-bold flex items-center justify-center gap-2 group shadow-xl shadow-primary-100"
+                className="btn-primary w-full py-3.5 text-sm font-bold flex items-center justify-center gap-2 group shadow-lg shadow-primary-100"
               >
                 Trust and Continue
-                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
               </button>
               <button 
                 onClick={deny} 

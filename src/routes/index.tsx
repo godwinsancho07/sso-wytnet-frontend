@@ -64,6 +64,9 @@ export default function AppRouter() {
         <Route path="/consent/authorize" element={
           <ProtectedRoute><OAuthConsent /></ProtectedRoute>
         } />
+        <Route path="/oauth/authorize" element={
+          <ProtectedRoute><OAuthConsent /></ProtectedRoute>
+        } />
 
         {/* ── Authenticated — shared AppShell ──────────────────────── */}
         <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>

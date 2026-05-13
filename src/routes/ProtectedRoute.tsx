@@ -11,7 +11,8 @@ export default function ProtectedRoute({ children }: Props) {
   const location = useLocation();
 
   if (!isAuthenticated && !storage.getAccessToken()) {
-    return <Navigate to="/" state={{ from: location }} replace />;
+    const nextPath = location.pathname + location.search;
+    return <Navigate to={`/login?next=${encodeURIComponent(nextPath)}`} state={{ from: location }} replace />;
   }
 
   return <>{children}</>;

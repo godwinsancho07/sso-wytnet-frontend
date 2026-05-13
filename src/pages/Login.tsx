@@ -21,7 +21,12 @@ export default function Login() {
   const location = useLocation();
   const { login, isLoading, error, clearError, primaryDashboard, isAuthenticated } = useAuthStore();
   const searchParams = new URLSearchParams(window.location.search);
-  const nextUrl = searchParams.get('next') || new URLSearchParams(location.search).get('next');
+  let nextUrl = searchParams.get('next') || new URLSearchParams(location.search).get('next');
+  
+  // Ensure we redirect to the frontend consent page, not the proxied backend endpoint
+  if (nextUrl?.startsWith('/oauth/authorize')) {
+    nextUrl = nextUrl.replace('/oauth/authorize', '/consent/authorize');
+  }
   const from = (location.state as any)?.from?.pathname;
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
@@ -33,7 +38,7 @@ export default function Login() {
     
     if (nextUrl) {
       // Handle OAuth authorize redirects specially to ensure token is passed if needed
-      if (nextUrl.includes('/oauth/authorize')) {
+      if (nextUrl.includes('/oauth/authorize') || nextUrl.includes('/consent/authorize')) {
         const token = storage.getAccessToken();
         const baseUrl = window.location.origin;
         try {
@@ -85,28 +90,28 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary-600 mb-4">
-            <Shield className="w-7 h-7 text-white" />
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50/50">
+      <div className="w-full max-w-[400px]">
+        <div className="text-center mb-5">
+          <div className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-primary-600 shadow-lg shadow-primary-600/20 mb-3">
+            <Shield className="w-5.5 h-5.5 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Sign in</h1>
-          <p className="text-gray-500 mt-1 text-sm">Access your SSO account</p>
+          <h1 className="text-xl font-bold text-gray-900 tracking-tight">Sign in</h1>
+          <p className="text-gray-500 mt-0.5 text-[11px]">Access your SSO account</p>
         </div>
 
-        <div className="card space-y-5">
+        <div className="card space-y-5 !p-6 shadow-xl shadow-gray-200/50">
           {error && (
             <Alert type="error" message={error} onClose={clearError} />
           )}
 
           <SocialLoginButtons next={nextUrl || undefined} />
 
-          <div className="relative">
+          <div className="relative py-1">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200" />
+              <div className="w-full border-t border-gray-100" />
             </div>
-            <div className="relative flex justify-center text-xs text-gray-400">
+            <div className="relative flex justify-center text-[9px] uppercase font-bold tracking-widest text-gray-400">
               <span className="bg-white px-3">or continue with email</span>
             </div>
           </div>
@@ -145,7 +150,7 @@ export default function Login() {
               )}
             </div>
 
-            <button type="submit" disabled={isLoading} className="btn-primary w-full">
+            <button type="submit" disabled={isLoading} className="btn-primary w-full py-2.5">
               {isLoading ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
@@ -158,37 +163,31 @@ export default function Login() {
           </p>
 
           {import.meta.env.DEV && (
-            <div className="border-t border-dashed border-amber-200 pt-4 space-y-2">
-              <p className="text-[10px] uppercase text-amber-700 text-center font-semibold tracking-wide">
+            <div className="border-t border-dashed border-gray-100 pt-5 space-y-2">
+              <p className="text-[9px] uppercase text-gray-400 text-center font-bold tracking-widest">
                 Dev quick login
               </p>
-              <button
-                type="button"
-                onClick={() => quickLogin('admin@example.com', 'Admin123!@#')}
-                disabled={isLoading}
-                className="flex items-center justify-center gap-2 w-full rounded-lg bg-amber-50 border border-amber-200 px-4 py-2 text-xs font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50 transition-colors"
-              >
-                <Zap className="w-3.5 h-3.5" />
-                Super Admin <span className="font-mono opacity-60">admin@example.com</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => quickLogin('appadmin@example.com', 'AppAdmin123!@#')}
-                disabled={isLoading}
-                className="flex items-center justify-center gap-2 w-full rounded-lg bg-blue-50 border border-blue-200 px-4 py-2 text-xs font-medium text-blue-900 hover:bg-blue-100 disabled:opacity-50 transition-colors"
-              >
-                <Zap className="w-3.5 h-3.5" />
-                App Admin <span className="font-mono opacity-60">appadmin@example.com</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => quickLogin('user@example.com', 'User123!@#')}
-                disabled={isLoading}
-                className="flex items-center justify-center gap-2 w-full rounded-lg bg-gray-50 border border-gray-200 px-4 py-2 text-xs font-medium text-gray-900 hover:bg-gray-100 disabled:opacity-50 transition-colors"
-              >
-                <Zap className="w-3.5 h-3.5" />
-                End User <span className="font-mono opacity-60">user@example.com</span>
-              </button>
+              <div className="grid gap-2">
+                {[
+                  { label: 'Super Admin', email: 'admin@example.com', color: 'amber', icon: Zap },
+                  { label: 'App Admin', email: 'appadmin@example.com', color: 'blue', icon: Zap },
+                  { label: 'End User', email: 'user@example.com', color: 'gray', icon: Zap },
+                ].map((dev) => (
+                  <button
+                    key={dev.email}
+                    type="button"
+                    onClick={() => quickLogin(dev.email, dev.email.includes('admin') ? (dev.email.startsWith('app') ? 'AppAdmin123!@#' : 'Admin123!@#') : 'User123!@#')}
+                    disabled={isLoading}
+                    className={`flex items-center justify-between w-full rounded-lg bg-${dev.color}-50/50 border border-${dev.color}-100 px-3 py-2 text-[10px] font-medium text-${dev.color}-900 hover:bg-${dev.color}-100 transition-all hover:scale-[1.01]`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <dev.icon className={`w-3 h-3 text-${dev.color}-600`} />
+                      <span className="font-semibold">{dev.label}</span>
+                    </div>
+                    <span className="font-mono opacity-60">{dev.email}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>

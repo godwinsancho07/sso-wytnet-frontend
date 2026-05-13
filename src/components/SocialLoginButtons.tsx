@@ -19,7 +19,7 @@ export default function SocialLoginButtons({ next }: { next?: string }) {
           key={name}
           type="button"
           onClick={() => handleSocialLogin(name)}
-          className={`flex items-center justify-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors ${color}`}
+          className={`flex items-center justify-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors ${color}`}
         >
           <ProviderIcon name={name} />
           {label}
