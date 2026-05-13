@@ -1,5 +1,13 @@
 
-export function generateNextJsMarkdown(clientId: string, clientSecret: string, appName: string): string {
+export function generateNextJsMarkdown(clientId: string, clientSecret: string, appName: string, redirectUris: string[] = []): string {
+  const baseUrls = Array.from(new Set(redirectUris.map(uri => uri.split('/api/auth/callback/')[0] || uri)));
+  const primaryUrl = baseUrls.find(u => u.startsWith('https')) || baseUrls[0] || 'http://localhost:3000';
+  
+  // Format the .env.local string
+  const envNextAuthUrl = baseUrls.length > 1 
+    ? baseUrls.map((u, i) => `# Option ${i+1}: ${u.startsWith('https') ? 'Production' : 'Development'}\nNEXTAUTH_URL=${u}`).join('\n')
+    : `NEXTAUTH_URL=${primaryUrl}`;
+
   return `# Integrating WytPass SSO with Next.js
 
 > Complete guide for Next.js applications using WytPass SSO as their identity provider.
@@ -31,7 +39,7 @@ A super_admin creates an OAuth client for your Next.js app via the SSO Admin Pan
 **Client Details:**
 - **App Name:** \`${appName}\`
 - **Redirect URIs:** 
-  - \`https://localhost:3000/api/auth/callback/wytpass\`
+${redirectUris.map(uri => `  - \`${uri}\``).join('\n') || '  - `http://localhost:3000/api/auth/callback/wytpass`'}
 - **Allowed Scopes:** \`openid\`, \`profile\`, \`email\`, \`offline_access\`
 - **Is Confidential:** \`true\` (for Next.js/NextAuth)
 - **Require PKCE:** \`true\`
@@ -71,14 +79,14 @@ npm install next-auth
 \`\`\`
 
 ### 4.1.1 Local SSL (Required for HTTPS)
-Since WytPass requires \`https\` redirect URIs, you must run your local server with SSL:
+If you are using \`https\` for local development (recommended for WytPass), run:
 \`\`\`bash
 npx next dev --experimental-https
 \`\`\`
 
 ### 4.2 Environment Variables (\`.env.local\`)
 \`\`\`env
-NEXTAUTH_URL=https://localhost:3000
+${envNextAuthUrl}
 NEXTAUTH_SECRET=${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}
 WYTPASS_CLIENT_ID=${clientId}
 WYTPASS_CLIENT_SECRET=${clientSecret || '<rotate-secret-to-get-new-value>'}

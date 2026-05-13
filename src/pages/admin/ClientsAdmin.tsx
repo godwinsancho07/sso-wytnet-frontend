@@ -397,7 +397,7 @@ function SecretRevealModal({ client, onClose, title }: SecretRevealProps) {
           <button
             onClick={async () => {
               try {
-                await clientsAdminService.downloadNextJsIntegrationDocs(client.client_id, client.app_name, client.client_secret);
+                await clientsAdminService.downloadNextJsIntegrationDocs(client.client_id, client.app_name, client.redirect_uris, client.client_secret);
               } catch {
                 /* noop */
               }
@@ -815,7 +815,7 @@ function ClientEditDrawer({
               <button
                 onClick={async () => {
                   try {
-                    await clientsAdminService.downloadNextJsIntegrationDocs(client.client_id, client.app_name);
+                    await clientsAdminService.downloadNextJsIntegrationDocs(client.client_id, client.app_name, redirectUris.filter(u => u.trim()));
                   } catch (e) {
                     onError(extractErrorMessage(e, 'Could not download Next.js docs'));
                   }

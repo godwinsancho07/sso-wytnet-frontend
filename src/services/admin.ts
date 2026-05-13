@@ -560,10 +560,11 @@ export const clientsAdminService = {
   async downloadNextJsIntegrationDocs(
     clientId: string,
     appName: string,
+    redirectUris: string[],
     clientSecret?: string,
   ): Promise<void> {
     const { generateNextJsMarkdown, downloadFile } = await import('@/utils/integrationDocs');
-    const content = generateNextJsMarkdown(clientId, clientSecret || '', appName);
+    const content = generateNextJsMarkdown(clientId, clientSecret || '', appName, redirectUris);
     const safeName = appName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'client';
     downloadFile(content, `${safeName}-nextjs-integration.md`);
   },
