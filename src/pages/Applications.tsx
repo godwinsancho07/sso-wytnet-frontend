@@ -3,7 +3,8 @@ import api from '@/services/api';
 import Alert from '@/components/Alert';
 import { useAuthStore } from '@/store/authStore';
 import { userActivityService, AuthorizedApp, clientsAdminService, OAuthClientRead } from '@/services/admin';
-import { Briefcase, RefreshCw, Trash2, ExternalLink, XCircle } from 'lucide-react';
+import { Briefcase, RefreshCw, Trash2, ExternalLink, XCircle, FileText, Download } from 'lucide-react';
+import { generateNextJsMarkdown, generateReactMarkdown, downloadFile } from '@/utils/integrationDocs';
 
 export default function Applications() {
   const { user } = useAuthStore();
@@ -68,6 +69,14 @@ export default function Applications() {
     }
   };
 
+  const downloadGuide = (client: OAuthClientRead, type: 'nextjs' | 'react') => {
+    const markdown = type === 'nextjs' 
+      ? generateNextJsMarkdown(client.client_id, '', client.app_name, client.redirect_uris)
+      : generateReactMarkdown(client.client_id, '', client.app_name, client.redirect_uris);
+    
+    downloadFile(markdown, `${client.app_name.replace(/\s+/g, '_')}_${type}_Integration.md`);
+  };
+
   if (!user?.is_superuser) {
     return (
       <div className="space-y-6">
@@ -116,11 +125,8 @@ export default function Applications() {
                       if (app.app_name.toLowerCase().includes('habit')) return '/habit-tracking/dashboard.html';
                       if (app.app_name.toLowerCase().includes('project a')) return '/project-a/dashboard.html';
                       
-                      // Find best redirect URI
                       const uris = app.redirect_uris || [];
                       const best = uris.find(u => u.includes('/callback')) || uris[0] || '#';
-                      
-                      // If it's a callback URL, we might want the base URL for launching
                       return best.split('/callback')[0] || best;
                     })()}
                     target="_blank"
@@ -176,12 +182,21 @@ export default function Applications() {
 
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Redirect URIs</p>
-                {c.redirect_uris.map((u) => (
-                  <p key={u} className="text-xs font-mono text-gray-600">{u}</p>
-                ))}
+                <div className="space-y-1">
+                  {c.redirect_uris.map((u) => (
+                    <p key={u} className="text-xs font-mono text-gray-600 bg-gray-50 p-1 rounded border border-gray-100 truncate">{u}</p>
+                  ))}
+                </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
+              <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-100">
+                <button onClick={() => downloadGuide(c, 'nextjs')} className="btn-secondary text-xs py-1.5 gap-1.5 border-blue-100 text-blue-700 hover:bg-blue-50">
+                  <Download className="w-3 h-3" /> Next.js Guide
+                </button>
+                <button onClick={() => downloadGuide(c, 'react')} className="btn-secondary text-xs py-1.5 gap-1.5 border-indigo-100 text-indigo-700 hover:bg-indigo-50">
+                  <Download className="w-3 h-3" /> React Guide
+                </button>
+                <div className="flex-grow" />
                 <button onClick={() => rotateSecret(c.id)} className="btn-secondary text-xs py-1.5 gap-1.5">
                   <RefreshCw className="w-3 h-3" /> Rotate secret
                 </button>
@@ -196,3 +211,4 @@ export default function Applications() {
     </div>
   );
 }
+

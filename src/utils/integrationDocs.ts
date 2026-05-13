@@ -214,6 +214,194 @@ import { signOut } from "next-auth/react";
 `;
 }
 
+export function generateReactMarkdown(clientId: string, clientSecret: string, appName: string, redirectUris: string[] = []): string {
+  const primaryRedirectUri = redirectUris[0] || 'http://localhost:5173/callback';
+  
+  return `# Integrating with the WytPass SSO Identity Provider
+
+> Complete guide for client applications that want to use this SSO as their identity provider.
+
+This document walks you through registering an OAuth client, implementing the **Authorization Code flow with PKCE**, verifying tokens, refreshing them, and handling logout.
+
+---
+
+## 1. What this SSO provides
+
+| Capability | Endpoint | Notes |
+|---|---|---|
+| OIDC Discovery | \`GET /.well-known/openid-configuration\` | Auto-config |
+| JWKS (public keys) | \`GET /.well-known/jwks.json\` | RS256, kid \`sso-key-1\` |
+| Authorize | \`GET /oauth/authorize\` | Browser-redirect; user logs in here |
+| Token | \`POST /oauth/token\` | Exchange code or refresh |
+| UserInfo | \`GET /oauth/userinfo\` | OIDC standard |
+| Revoke | \`POST /oauth/revoke\` | RFC 7009 |
+
+**Token format:** RS256-signed JWT. Public key at \`/.well-known/jwks.json\`.
+**Issuer (iss claim):** \`https://api.wytnet.com\`.
+
+---
+
+## 2. Register your app
+
+A super_admin creates an OAuth client for your app via:
+
+\`\`\`
+POST /v1/clients
+{
+  "app_name": "${appName}",
+  "redirect_uris": ["${primaryRedirectUri}"],
+  "allowed_scopes": ["openid", "profile", "email"],
+  "is_confidential": true,
+  "require_pkce": true
+}
+\`\`\`
+
+You'll receive:
+- \`client_id\` — \`${clientId}\`
+- \`client_secret\` — \`${clientSecret || '<rotate-secret-to-get-new-value>'}\`
+
+> **Public clients** (SPAs, mobile apps) should set \`is_confidential: false\` and rely on PKCE only — no client secret.
+
+---
+
+## 3. The flow (Authorization Code with PKCE)
+
+\`\`\`mermaid
+sequenceDiagram
+    participant App as Your App
+    participant SSO as SSO Provider
+    
+    App->>SSO: GET /oauth/authorize?response_type=code&client_id=...&code_challenge=...
+    Note over SSO: User logs in / consents
+    SSO-->>App: 302 Redirect to /callback?code=AUTH_CODE
+    App->>SSO: POST /oauth/token (code + code_verifier + client_secret)
+    SSO-->>App: 200 OK (access_token, id_token)
+\`\`\`
+
+---
+
+## 4. Implementation — JavaScript (browser SPA)
+
+### 4.1 Start sign-in (frontend)
+
+Use cookies for the state to ensure it survives redirects.
+
+\`\`\`js
+// Simple cookie helpers
+const setCookie = (name, value) => {
+  document.cookie = \`\${name}=\${value}; path=/; max-age=3600; SameSite=Lax\`;
+};
+
+async function signIn() {
+  const { verifier, challenge } = await createPKCE();
+  const state = crypto.randomUUID();
+
+  setCookie('pkce_verifier', verifier);
+  setCookie('oauth_state', state);
+
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: '${clientId}',
+    redirect_uri: '${primaryRedirectUri}',
+    scope: 'openid profile email',
+    state,
+    code_challenge: challenge,
+    code_challenge_method: 'S256',
+  });
+
+  window.location.href = \`https://api.wytnet.com/oauth/authorize?\${params}\`;
+}
+\`\`\`
+
+### 4.2 Handle the callback (frontend)
+
+Call your **own backend** to perform the token exchange securely.
+
+\`\`\`js
+async function handleCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const code  = params.get('code');
+  const state = params.get('state');
+  const storedState = getCookie('oauth_state');
+
+  if (state !== storedState) {
+    throw new Error('Invalid state — possible CSRF attack');
+  }
+
+  const verifier = getCookie('pkce_verifier');
+  // Clear cookies
+  deleteCookie('oauth_state');
+  deleteCookie('pkce_verifier');
+
+  const resp = await fetch('http://localhost:8000/api/auth/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, code_verifier: verifier }),
+  });
+  
+  const tokens = await resp.json();
+
+  localStorage.setItem('access_token', tokens.access_token);
+  localStorage.setItem('id_token',      tokens.id_token); // Use this for identity
+  return tokens;
+}
+\`\`\`
+
+---
+
+## 5. Implementation — Backend (FastAPI Example)
+
+### 5.1 Token Exchange
+Your backend performs a server-to-server request to the SSO provider.
+
+\`\`\`python
+@app.post("/api/auth/token")
+async def exchange_token(payload: TokenExchangePayload):
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            "https://api.wytnet.com/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": payload.code,
+                "redirect_uri": "${primaryRedirectUri}",
+                "client_id": "${clientId}",
+                "client_secret": "YOUR_CLIENT_SECRET",
+                "code_verifier": payload.code_verifier,
+            }
+        )
+        return resp.json()
+\`\`\`
+
+---
+
+## 6. Security checklist
+
+- ✅ **Always use PKCE** — required for public clients, recommended for confidential
+- ✅ **Always validate state** on the callback to prevent CSRF
+- ✅ **Always verify JWT signature** on your backend with the JWKS public key
+- ✅ **Verify iss and aud claims** on the ID token
+- ✅ Rotate refresh tokens automatically
+- ✅ Don't store tokens in localStorage if you can avoid it (httpOnly cookie is safer)
+- ❌ Don't ship \`client_secret\` to a browser — use PKCE-only public client
+
+---
+
+## 7. Logout
+
+### Local sign-out
+Clear local tokens. The user is still logged in at the IdP.
+
+### Single sign-out (everywhere)
+Call \`POST /auth/logout/all\` with the user's bearer token.
+
+### Revoke a single refresh token
+\`\`\`
+POST /oauth/revoke
+{ "token": "<refresh_token>", "token_type_hint": "refresh_token" }
+\`\`\`
+`;
+}
+
 export function downloadFile(content: string, filename: string) {
   const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
   const url = window.URL.createObjectURL(blob);
@@ -225,3 +413,4 @@ export function downloadFile(content: string, filename: string) {
   a.remove();
   window.URL.revokeObjectURL(url);
 }
+
