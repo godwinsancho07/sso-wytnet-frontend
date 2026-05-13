@@ -555,6 +555,18 @@ export const clientsAdminService = {
     a.remove();
     window.URL.revokeObjectURL(url);
   },
+
+  /** Download Next.js specific integration docs */
+  async downloadNextJsIntegrationDocs(
+    clientId: string,
+    appName: string,
+    clientSecret?: string,
+  ): Promise<void> {
+    const { generateNextJsMarkdown, downloadFile } = await import('@/utils/integrationDocs');
+    const content = generateNextJsMarkdown(clientId, clientSecret || '', appName);
+    const safeName = appName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'client';
+    downloadFile(content, `${safeName}-nextjs-integration.md`);
+  },
   async listAdmins(clientDbId: string): Promise<ClientAdminUser[]> {
     const { data } = await api.get<ClientAdminUser[]>(
       `/v1/clients/${clientDbId}/admins`,
