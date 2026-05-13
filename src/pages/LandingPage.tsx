@@ -52,13 +52,27 @@ export default function LandingPage() {
     
     let redirectUri = app.redirect_uris.find(u => {
       const isUriLocal = u.includes('localhost') || u.includes('127.0.0.1');
-      // If portal is local, prefer local URIs. If portal is prod, prefer prod URIs.
-      return isPortalLocal ? isUriLocal : !isUriLocal;
+      const hasCallback = u.includes('/callback');
+      // Prioritize environment-specific URI that HAS a /callback path
+      return isPortalLocal ? (isUriLocal && hasCallback) : (!isUriLocal && hasCallback);
     });
 
-    // Fallback if no environment-specific match found, prefer one with /callback
+    // Fallback 1: Any URI that has /callback
     if (!redirectUri) {
-      redirectUri = app.redirect_uris.find(u => u.includes('/callback')) || app.redirect_uris[0] || 'http://localhost:5173/callback';
+      redirectUri = app.redirect_uris.find(u => u.includes('/callback'));
+    }
+
+    // Fallback 2: Any environment-specific URI
+    if (!redirectUri) {
+      redirectUri = app.redirect_uris.find(u => {
+        const isUriLocal = u.includes('localhost') || u.includes('127.0.0.1');
+        return isPortalLocal ? isUriLocal : !isUriLocal;
+      });
+    }
+
+    // Ultimate fallback
+    if (!redirectUri) {
+      redirectUri = app.redirect_uris[0] || 'http://localhost:5173/callback';
     }
     
     // We pass the verifier in the 'state' parameter to bypass strict redirect_uri matching
