@@ -48,7 +48,18 @@ export default function LandingPage() {
     localStorage.setItem('pkce_verifier', verifier);
 
     // Use the best available redirect URI from the registered list
-    let redirectUri = app.redirect_uris.find(u => u.includes('/callback')) || app.redirect_uris[0] || 'http://localhost:5173/callback';
+    const isPortalLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    
+    let redirectUri = app.redirect_uris.find(u => {
+      const isUriLocal = u.includes('localhost') || u.includes('127.0.0.1');
+      // If portal is local, prefer local URIs. If portal is prod, prefer prod URIs.
+      return isPortalLocal ? isUriLocal : !isUriLocal;
+    });
+
+    // Fallback if no environment-specific match found, prefer one with /callback
+    if (!redirectUri) {
+      redirectUri = app.redirect_uris.find(u => u.includes('/callback')) || app.redirect_uris[0] || 'http://localhost:5173/callback';
+    }
     
     // We pass the verifier in the 'state' parameter to bypass strict redirect_uri matching
     const state = `portal|verifier:${verifier}`;
