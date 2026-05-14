@@ -12,6 +12,7 @@ import SocialCallback from '@/pages/SocialCallback';
 import SocialLogin from '@/pages/SocialLogin';
 import LandingPage from '@/pages/LandingPage';
 import ExploreApps from '@/pages/ExploreApps';
+import BannedPage from '@/pages/BannedPage';
 
 // Auth-required (end-user) pages
 import Dashboard from '@/pages/Dashboard';
@@ -36,6 +37,7 @@ import CreateUser from '@/pages/admin/CreateUser';
 // App-admin pages
 import AppAdminDashboard from '@/pages/admin/AppAdminDashboard';
 import AppAdminClients from '@/pages/admin/AppAdminClients';
+import AppUsers from '@/pages/admin/AppUsers';
 
 // Layout guards
 import ProtectedRoute from './ProtectedRoute';
@@ -61,6 +63,7 @@ export default function AppRouter() {
         <Route path="/social-callback" element={<SocialCallback />} />
         <Route path="/social-login"    element={<SocialLogin />} />
         <Route path="/explore"         element={<ExploreApps />} />
+        <Route path="/banned"          element={<BannedPage />} />
 
         {/* OAuth consent — auth required, no shell */}
         <Route path="/consent/authorize" element={
@@ -147,6 +150,11 @@ export default function AppRouter() {
           <Route path="/app-admin/clients" element={
             <RoleGate requireRoles={['app_admin', 'super_admin']} fallback="/dashboard">
               <AppAdminClients />
+            </RoleGate>
+          } />
+          <Route path="/app-admin/clients/:clientId/users" element={
+            <RoleGate requireRoles={['app_admin', 'super_admin']} fallback="/dashboard">
+              <AppUsers />
             </RoleGate>
           } />
         </Route>

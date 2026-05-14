@@ -30,9 +30,14 @@ export default function OAuthConsent() {
   useEffect(() => {
     if (!clientId) return;
     api.get(`/oauth/client-info?client_id=${clientId}`)
-      .then(({ data }) => setClientInfo(data))
+      .then(({ data }) => {
+        setClientInfo(data);
+        if (data.is_banned) {
+          navigate(`/banned?client_id=${clientId}`, { replace: true });
+        }
+      })
       .catch(() => setError('Invalid client application'));
-  }, [clientId]);
+  }, [clientId, navigate]);
 
   const approve = async () => {
     const url = new URLSearchParams({

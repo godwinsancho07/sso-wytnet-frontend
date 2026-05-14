@@ -117,6 +117,16 @@ export const appAdminService = {
     );
     return data;
   },
+  async getPaginatedUsers(clientDbId: string, params: { offset?: number; limit?: number; q?: string }): Promise<{ items: (AppUser & { is_banned: boolean })[]; total: number }> {
+    const { data } = await api.get(`/v1/clients/${clientDbId}/users`, { params });
+    return data;
+  },
+  async banUser(clientDbId: string, userId: string, reason?: string): Promise<void> {
+    await api.post(`/v1/clients/${clientDbId}/users/${userId}/ban`, { reason });
+  },
+  async unbanUser(clientDbId: string, userId: string): Promise<void> {
+    await api.delete(`/v1/clients/${clientDbId}/users/${userId}/ban`);
+  },
 };
 
 export const userActivityService = {
