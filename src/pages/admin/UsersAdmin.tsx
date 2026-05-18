@@ -15,7 +15,7 @@ import {
   AdminUserDetailRole,
 } from '@/services/admin';
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 10;
 
 const FILTERS: { id: 'all' | 'active' | 'unverified'; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -36,6 +36,7 @@ export default function UsersAdmin() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [totalCount, setTotalCount] = useState(0);
 
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
@@ -63,6 +64,7 @@ export default function UsersAdmin() {
       .then((res) => {
         if (cancelled) return;
         setUsers(res.items);
+        setTotalCount(res.count);
       })
       .catch((e) => {
         if (cancelled) return;
@@ -182,7 +184,7 @@ export default function UsersAdmin() {
         </div>
       </div>
 
-      <div className="card overflow-hidden p-0">
+      <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
             <tr>
@@ -365,7 +367,7 @@ export default function UsersAdmin() {
 
         <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50">
           <p className="text-xs text-gray-500">
-            Showing {showingFrom}–{showingTo}
+            Showing {showingFrom}–{showingTo} of {totalCount}
           </p>
           <div className="flex gap-2">
             <button

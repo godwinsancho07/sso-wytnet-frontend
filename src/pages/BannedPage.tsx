@@ -7,6 +7,9 @@ export default function BannedPage() {
   const [searchParams] = useSearchParams();
   const logout = useAuthStore((s) => s.logout);
   const clientId = searchParams.get('client_id');
+  const reason = searchParams.get('reason');
+
+  const isCreditsError = reason === 'out_of_credits';
 
   const handleBackToLogin = async () => {
     await logout();
@@ -21,9 +24,13 @@ export default function BannedPage() {
         </div>
         
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold text-gray-900">Access Denied</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {isCreditsError ? 'Application Disabled' : 'Access Denied'}
+          </h1>
           <p className="text-gray-500">
-            Sorry, you have been banned from using this application by the app administrator.
+            {isCreditsError 
+              ? 'This application has reached its user limit on the Free plan. The developer needs to upgrade to allow more users.'
+              : 'Sorry, you have been banned from using this application by the app administrator.'}
           </p>
         </div>
 

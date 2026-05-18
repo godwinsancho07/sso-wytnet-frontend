@@ -9,22 +9,33 @@ import {
 } from '@/services/admin';
 import {
   Shield, Monitor, Link2, CheckCircle, AlertCircle, Activity,
-  Smartphone, Tablet, Globe, X, Trash2,
+  Smartphone, Tablet, Globe, X, Trash2, Rocket
 } from 'lucide-react';
+import api from '@/services/api';
 import { clsx } from 'clsx';
+import { generateReceiptPDF } from '@/utils/receipt';
 
 export default function Dashboard() {
-  const { user } = useAuthStore();
+  const { user, permissions } = useAuthStore();
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [apps, setApps] = useState<AuthorizedApp[]>([]);
   const [activity, setActivity] = useState<AuditEvent[]>([]);
+  const [paymentState, setPaymentState] = useState<'idle' | 'paying' | 'processing' | 'success'>('idle');
+
+  const [promoPlans, setPromoPlans] = useState<{devPlan: any}>({devPlan: null});
 
   const loadAll = () => {
     userService.getSocialAccounts().then(setAccounts).catch(() => {});
     sessionService.getSessions().then(setSessions).catch(() => {});
     userActivityService.getAuthorizedApps().then(setApps).catch(() => {});
     userActivityService.getActivity(10).then(setActivity).catch(() => {});
+    
+    // Fetch plans for promo banner
+    api.get('/v1/plans/public').then(({data}) => {
+      const dev = data.find((p: any) => p.type === 'DEVELOPER' && p.is_default);
+      setPromoPlans({devPlan: dev});
+    }).catch(() => {});
   };
 
   useEffect(() => { loadAll(); }, []);
@@ -81,6 +92,85 @@ export default function Dashboard() {
           ok={true}
         />
       </div>
+      
+      {/* Developer Program Banner */}
+      {!permissions?.roles.includes('app_admin') && (
+        <div className="relative overflow-hidden bg-gradient-to-r from-primary-900 via-primary-800 to-primary-700 rounded-3xl p-8 text-white shadow-2xl shadow-primary-200 my-6">
+          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="space-y-4 max-w-xl text-center md:text-left">
+              <div className="flex items-center gap-3 justify-center md:justify-start">
+                <div className="bg-white/20 p-2 rounded-xl">
+                  <Rocket className="w-6 h-6 text-primary-200" />
+                </div>
+                <h2 className="text-2xl font-extrabold tracking-tight italic">Join the WytPass Developer Program</h2>
+              </div>
+              <p className="text-primary-100 text-lg leading-relaxed font-medium">
+                Register your own apps and let users sign in with WytPass SSO. Get your client ID, secret and full integration docs.
+              </p>
+              <div className="flex flex-wrap gap-4 justify-center md:justify-start pt-2">
+                <div className="flex items-center gap-2 text-sm font-bold bg-white/10 px-3 py-1.5 rounded-full border border-white/10">
+                  <CheckCircle className="w-4 h-4 text-primary-300" />
+                  Register OAuth apps
+                </div>
+                <div className="flex items-center gap-2 text-sm font-bold bg-white/10 px-3 py-1.5 rounded-full border border-white/10">
+                  <CheckCircle className="w-4 h-4 text-primary-300" />
+                  Get client ID & secret
+                </div>
+                <div className="flex items-center gap-2 text-sm font-bold bg-white/10 px-3 py-1.5 rounded-full border border-white/10">
+                  <CheckCircle className="w-4 h-4 text-primary-300" />
+                  Integration docs
+                </div>
+                <div className="flex items-center gap-2 text-sm font-bold bg-white/10 px-3 py-1.5 rounded-full border border-white/10">
+                  <CheckCircle className="w-4 h-4 text-primary-300" />
+                  {promoPlans.devPlan?.credits_limit || 2} free API requests per app
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex flex-col items-center gap-4 bg-white/5 p-8 rounded-3xl border border-white/10 backdrop-blur-sm min-w-[200px]">
+              {paymentState === 'idle' ? (
+                <>
+                  <button 
+                    onClick={async () => {
+                      try {
+                        setPaymentState('processing');
+                        await api.post('/v1/plans/join-developer-program');
+                        setPaymentState('success');
+                        setTimeout(async () => {
+                          await useAuthStore.getState().fetchUser();
+                          window.location.reload();
+                        }, 2000);
+                      } catch (e) {
+                        setPaymentState('idle');
+                        alert('Failed to join the developer program. Please try again.');
+                      }
+                    }}
+                    className="w-full flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-500 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all shadow-xl shadow-black/20 group"
+                  >
+                    <Rocket className="w-5 h-5 group-hover:-rotate-12 transition-transform" />
+                    Join now
+                  </button>
+                </>
+              ) : paymentState === 'processing' ? (
+                <div className="flex flex-col items-center gap-4 py-4">
+                  <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+                  <p className="font-bold">Joining...</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-center py-4">
+                  <CheckCircle className="w-16 h-16 text-green-400 animate-bounce" />
+                  <p className="text-xl font-black">Welcome!</p>
+                  <p className="text-sm text-primary-200">You are now a developer.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Abstract Background Shapes */}
+          <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-96 h-96 bg-white/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/4 w-96 h-96 bg-primary-400/10 rounded-full blur-3xl pointer-events-none" />
+        </div>
+      )}
 
       {/* Security score */}
       <div className="card">
@@ -96,7 +186,7 @@ export default function Dashboard() {
           </span>
         </div>
         <ul className="space-y-2">
-          {securityScore.items.map((it, i) => (
+          {securityScore.items.map((it: ChecklistItem, i: number) => (
             <li key={i} className="flex items-center gap-2 text-sm">
               {it.ok
                 ? <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
@@ -190,7 +280,7 @@ export default function Dashboard() {
           <p className="text-sm text-gray-400 text-center py-6">No recent activity.</p>
         ) : (
           <ul className="divide-y divide-gray-100">
-            {activity.map((e) => (
+            {activity.map((e: AuditEvent) => (
               <li key={e.id} className="flex items-center justify-between py-2.5 text-sm">
                 <div className="flex items-center gap-2">
                   <EventDot event={e.event_type} />

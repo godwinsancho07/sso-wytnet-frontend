@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { appAdminService, AdminGlobalOverview } from '@/services/admin';
+import { useAuthStore } from '@/store/authStore';
 import {
   Briefcase, Users, Activity, RefreshCw, Layers, ShieldCheck, Zap,
 } from 'lucide-react';
@@ -8,6 +9,7 @@ import {
 export default function AppAdminDashboard() {
   const [metrics, setMetrics] = useState<AdminGlobalOverview | null>(null);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuthStore();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -16,6 +18,7 @@ export default function AppAdminDashboard() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
 
   if (loading) {
     return (
@@ -39,6 +42,8 @@ export default function AppAdminDashboard() {
           REFRESHED: {metrics?.generated_at ? new Date(metrics.generated_at).toLocaleTimeString() : 'N/A'}
         </div>
       </div>
+
+
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard

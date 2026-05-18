@@ -41,4 +41,22 @@
   .label {
     @apply block text-[12px] font-bold text-slate-500 mb-1.5 uppercase tracking-widest;
   }
+  .plan-card {
+    @apply rounded-[2rem] p-8 text-white relative overflow-hidden transition-all duration-300;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    box-shadow: 0 20px 50px -12px rgba(15, 23, 42, 0.5);
+  }
+  .plan-card:hover {
+    @apply -translate-y-1;
+    box-shadow: 0 30px 60px -12px rgba(15, 23, 42, 0.6);
+  }
+  .plan-card .progress-bg {
+    @apply h-2 w-full bg-slate-700 rounded-full mt-6 overflow-hidden;
+  }
+  .plan-card .progress-bar {
+    @apply h-full bg-amber-500 rounded-full transition-all duration-700 ease-out;
+  }
+  .plan-badge {
+    @apply px-3 py-1 rounded-lg bg-white/10 text-[10px] font-bold uppercase tracking-widest border border-white/10 backdrop-blur-sm;
+  }
 }

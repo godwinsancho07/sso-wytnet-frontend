@@ -33,11 +33,18 @@ import ReportsAdmin from '@/pages/admin/ReportsAdmin';
 import SettingsAdmin from '@/pages/admin/SettingsAdmin';
 import UserDetail from '@/pages/admin/UserDetail';
 import CreateUser from '@/pages/admin/CreateUser';
+import PlansAdmin from '@/pages/admin/PlansAdmin';
+import EditPlan from '@/pages/admin/EditPlan';
+import RevenueAdmin from '@/pages/admin/RevenueAdmin';
 
 // App-admin pages
 import AppAdminDashboard from '@/pages/admin/AppAdminDashboard';
 import AppAdminClients from '@/pages/admin/AppAdminClients';
 import AppUsers from '@/pages/admin/AppUsers';
+import UpgradePlan from '@/pages/admin/UpgradePlan';
+import PlanAndCredits from '@/pages/dashboard/PlanAndCredits';
+import CreditLogs from '@/pages/dashboard/CreditLogs';
+import PricingPage from '@/pages/Pricing';
 
 // Layout guards
 import ProtectedRoute from './ProtectedRoute';
@@ -82,6 +89,7 @@ export default function AppRouter() {
           <Route path="/sessions"     element={<Sessions />} />
           <Route path="/security"     element={<Security />} />
           <Route path="/applications" element={<Applications />} />
+          <Route path="/plans"        element={<PricingPage />} />
 
           {/* ── Super Admin ────────────────────────────────────────── */}
           <Route path="/admin/dashboard" element={
@@ -107,6 +115,26 @@ export default function AppRouter() {
           <Route path="/admin/clients" element={
             <RoleGate requireRoles={['super_admin']} fallback="/dashboard">
               <ClientsAdmin />
+            </RoleGate>
+          } />
+          <Route path="/admin/plans" element={
+            <RoleGate requireRoles={['super_admin']} fallback="/dashboard">
+              <PlansAdmin />
+            </RoleGate>
+          } />
+          <Route path="/admin/plans/new" element={
+            <RoleGate requireRoles={['super_admin']} fallback="/dashboard">
+              <EditPlan />
+            </RoleGate>
+          } />
+          <Route path="/admin/plans/:id/edit" element={
+            <RoleGate requireRoles={['super_admin']} fallback="/dashboard">
+              <EditPlan />
+            </RoleGate>
+          } />
+          <Route path="/admin/revenue" element={
+            <RoleGate requireRoles={['super_admin']} fallback="/dashboard">
+              <RevenueAdmin />
             </RoleGate>
           } />
           <Route path="/admin/roles" element={
@@ -155,6 +183,21 @@ export default function AppRouter() {
           <Route path="/app-admin/clients/:clientId/users" element={
             <RoleGate requireRoles={['app_admin', 'super_admin']} fallback="/dashboard">
               <AppUsers />
+            </RoleGate>
+          } />
+          <Route path="/app-admin/clients/:clientId/upgrade" element={
+            <RoleGate requireRoles={['app_admin', 'super_admin']} fallback="/dashboard">
+              <UpgradePlan />
+            </RoleGate>
+          } />
+          <Route path="/app-admin/plans" element={
+            <RoleGate requireRoles={['app_admin', 'super_admin']} fallback="/dashboard">
+              <PlanAndCredits />
+            </RoleGate>
+          } />
+          <Route path="/app-admin/credits" element={
+            <RoleGate requireRoles={['app_admin', 'super_admin']} fallback="/dashboard">
+              <CreditLogs />
             </RoleGate>
           } />
         </Route>

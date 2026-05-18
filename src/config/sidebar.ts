@@ -28,6 +28,8 @@ export const SIDEBAR_BY_ROLE: Record<string, SidebarItem[]> = {
     { to: '/admin/dashboard',   label: 'Overview',          icon: Home,          section: 'main' },
     { to: '/admin/users',       label: 'Users',             icon: Users,         section: 'main' },
     { to: '/admin/clients',     label: 'OAuth Clients',     icon: Briefcase,     section: 'main' },
+    { to: '/admin/plans',       label: 'Plans',             icon: Layers,        section: 'main' },
+    { to: '/admin/revenue',     label: 'Revenue',           icon: BarChart3,     section: 'main' },
     { to: '/admin/roles',       label: 'Roles',             icon: Lock,          section: 'main' },
     { to: '/admin/sessions',    label: 'Sessions',          icon: Activity,      section: 'main' },
     { to: '/admin/security',    label: 'Security Center',   icon: Shield,        section: 'main' },
@@ -43,6 +45,8 @@ export const SIDEBAR_BY_ROLE: Record<string, SidebarItem[]> = {
   app_admin: [
     { to: '/app-admin/dashboard', label: 'Overview',     icon: Home,         section: 'main' },
     { to: '/app-admin/clients',   label: 'My Apps',      icon: Briefcase,    section: 'main' },
+    { to: '/app-admin/plans',     label: 'Plan & Credits', icon: Layers,       section: 'main' },
+    { to: '/app-admin/credits',   label: 'Credit Logs',   icon: Activity,     section: 'main' },
     { to: '/applications',        label: 'Connected Apps', icon: Link2,       section: 'main' },
     // Self
     { to: '/profile',             label: 'Profile',      icon: Users,        section: 'self' },
@@ -57,6 +61,7 @@ export const SIDEBAR_BY_ROLE: Record<string, SidebarItem[]> = {
     { to: '/sessions',      label: 'Sessions',        icon: Activity,section: 'main' },
     { to: '/security',      label: 'Security',        icon: Lock,    section: 'main' },
   ],
+
 };
 
 /**

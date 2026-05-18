@@ -1,4 +1,5 @@
 import api, { API_URL } from './api';
+export { api };
 import { storage } from '@/utils/storage';
 
 export interface LoginPayload {
@@ -27,6 +28,13 @@ export interface User {
   email_verified: boolean;
   is_active: boolean;
   is_superuser: boolean;
+  plan_id: string | null;
+  credits_used: number;
+  plan?: {
+    name: string;
+    credits_limit: number;
+    credits_used: number;
+  };
   created_at: string;
   updated_at: string;
 }

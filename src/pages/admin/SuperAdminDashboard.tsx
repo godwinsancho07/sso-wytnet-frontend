@@ -9,8 +9,9 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import {
-  adminService, MetricsOverview, SecurityAlert, AuditEvent, TopApp,
+  adminService, MetricsOverview, SecurityAlert, AuditEvent, TopApp, RevenueReport,
 } from '@/services/admin';
+import { DollarSign, CreditCard, ShoppingCart } from 'lucide-react';
 
 /* ─── enriched overview shape ──────────────────────────────────────────────── */
 interface RichOverview extends MetricsOverview {
@@ -74,6 +75,7 @@ export default function SuperAdminDashboard() {
   const [alerts, setAlerts] = useState<SecurityAlert[]>([]);
   const [audit, setAudit] = useState<AuditEvent[]>([]);
   const [topApps, setTopApps] = useState<TopApp[]>([]);
+  const [revenue, setRevenue] = useState<RevenueReport | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = () => {
@@ -82,11 +84,13 @@ export default function SuperAdminDashboard() {
       adminService.getSecurityAlerts().catch(() => []),
       adminService.getRecentAudit(20).catch(() => []),
       adminService.getTopApps(8).catch(() => []),
-    ]).then(([m, a, e, t]) => {
+      adminService.getRevenue().catch(() => null),
+    ]).then(([m, a, e, t, r]) => {
       setMetrics(m as any);
       setAlerts(a);
       setAudit(e);
       setTopApps(t);
+      setRevenue(r);
       setLoading(false);
     });
   };
@@ -190,6 +194,13 @@ export default function SuperAdminDashboard() {
         <KPI icon={<Lock className="w-4 h-4" />}          label="Account Lockouts"   value={(metrics as any)?.account_lockouts ?? 0}     accent="amber"  loading={loading} />
       </KPISection>
 
+      {/* ── Revenue KPIs ─────────────────────────────────────────────── */}
+      <KPISection title="Business & Revenue" icon={<DollarSign className="w-4 h-4" />} to="/admin/plans">
+        <KPI icon={<CreditCard className="w-4 h-4" />}    label="Total Revenue (₹)" value={revenue?.total_revenue}      accent="green"  loading={loading} />
+        <KPI icon={<TrendingUp className="w-4 h-4" />}    label="Today's Earnings"  value={metrics?.today_revenue ?? 0} accent="green" loading={loading} />
+        <KPI icon={<ShoppingCart className="w-4 h-4" />}  label="Total Upgrades"    value={revenue?.total_payments}     accent="blue"   loading={loading} />
+      </KPISection>
+
       {/* ── Bottom row: Alerts + Activity + Quick Actions ────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Alerts */}
@@ -262,6 +273,45 @@ export default function SuperAdminDashboard() {
                 );
               })}
             </ul>
+          )}
+        </div>
+
+        {/* Recent Payments */}
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-gray-900 flex items-center gap-2 text-sm">
+              <CreditCard className="w-4 h-4 text-green-600" />
+              Recent Transactions
+            </h2>
+            <Link to="/admin/plans" className="text-xs text-primary-600 hover:underline">Manage Plans</Link>
+          </div>
+          {!revenue?.recent_payments || revenue.recent_payments.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">No payments recorded yet.</p>
+          ) : (
+            <div className="overflow-x-auto -mx-4 px-4">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="text-[10px] uppercase font-bold text-gray-400 border-b">
+                    <th className="pb-2">User</th>
+                    <th className="pb-2 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {revenue.recent_payments.slice(0, 8).map((p, i) => (
+                    <tr key={i} className="text-xs group">
+                      <td className="py-2.5 min-w-0">
+                        <p className="font-medium text-gray-900 truncate max-w-[140px]">{p.email}</p>
+                        <p className="text-[10px] text-gray-400">{new Date(p.date).toLocaleDateString()}</p>
+                      </td>
+                      <td className="py-2.5 text-right">
+                        <p className="font-bold text-green-600">₹{p.amount}</p>
+                        <p className="text-[10px] text-gray-400">{p.plan_name}</p>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 

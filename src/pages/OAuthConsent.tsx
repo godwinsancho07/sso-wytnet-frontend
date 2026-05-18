@@ -16,7 +16,11 @@ export default function OAuthConsent() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const [clientInfo, setClientInfo] = useState<{app_name: string, logo_url: string | null} | null>(null);
+  const [clientInfo, setClientInfo] = useState<{
+    app_name: string, 
+    logo_url: string | null, 
+    out_of_credits: boolean
+  } | null>(null);
   const [error, setError] = useState('');
 
   const clientId = params.get('client_id') || '';
@@ -142,13 +146,30 @@ export default function OAuthConsent() {
 
             {/* Actions Section */}
             <div className="space-y-3 pt-2">
-              <button 
-                onClick={approve} 
-                className="btn-primary w-full py-3.5 text-sm font-bold flex items-center justify-center gap-2 group shadow-lg shadow-primary-100"
-              >
-                Trust and Continue
-                <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-              </button>
+              {clientInfo?.out_of_credits ? (
+                <div className="space-y-3">
+                  <div className="p-4 bg-red-50 border border-red-100 rounded-2xl">
+                    <p className="text-xs text-red-800 font-medium leading-relaxed text-center">
+                      Access Denied: This application is currently disabled for new users because it has reached the user limit of its current plan. 
+                      Once the developer upgrades their plan, access will be restored.
+                    </p>
+                  </div>
+                  <button 
+                    disabled
+                    className="w-full py-3.5 bg-gray-100 text-gray-400 rounded-2xl text-sm font-bold cursor-not-allowed"
+                  >
+                    Trust and Continue
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  onClick={approve} 
+                  className="btn-primary w-full py-3.5 text-sm font-bold flex items-center justify-center gap-2 group shadow-lg shadow-primary-100"
+                >
+                  Trust and Continue
+                  <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                </button>
+              )}
               <button 
                 onClick={deny} 
                 className="w-full py-3.5 text-sm font-bold text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-2xl transition-all"

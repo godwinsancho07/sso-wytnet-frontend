@@ -43,12 +43,13 @@ export default function Applications() {
   const handleRevoke = async (id: string) => {
     try {
       await userActivityService.revokeApp(id);
+      setAuthorizedApps(prev => prev.filter(app => app.id !== id));
       setMessage('Application access revoked');
-      loadData();
     } catch (e) {
       setError('Failed to revoke application');
     }
   };
+
 
   const rotateSecret = async (id: string) => {
     try {

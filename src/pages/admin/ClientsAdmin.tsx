@@ -28,7 +28,14 @@ import {
   Power,
   PowerOff,
   FileDown,
+  MoreVertical,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Edit2
 } from 'lucide-react';
+
+const PAGE_SIZE = 10;
 
 const SCOPE_OPTIONS = ['openid', 'profile', 'email', 'offline_access'];
 
@@ -859,11 +866,15 @@ export default function ClientsAdmin() {
     title?: string;
   } | null>(null);
 
+  const [offset, setOffset] = useState(0);
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+
   const load = async () => {
     setLoading(true);
     setError('');
     try {
-      const data = await clientsAdminService.list();
+      // We load all for frontend pagination to keep search working since backend doesn't support search q yet
+      const data = await clientsAdminService.list(0, 1000);
       setClients(data.filter(c => !c.app_name.toLowerCase().includes('internal sso')));
     } catch (e: any) {
       setError(e.response?.data?.detail || 'Failed to load clients');
@@ -876,18 +887,30 @@ export default function ClientsAdmin() {
     load();
   }, []);
 
+  useEffect(() => {
+    setOffset(0);
+  }, [query]);
+
   const filtered = useMemo(() => {
-    if (!query.trim()) return clients;
-    const q = query.toLowerCase();
-    return clients
-      .filter(c => !c.app_name.toLowerCase().includes('internal sso'))
-      .filter(
+    let result = clients;
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      result = clients.filter(
         (c) =>
           c.app_name.toLowerCase().includes(q) ||
           c.client_id.toLowerCase().includes(q) ||
           (c.description || '').toLowerCase().includes(q),
       );
+    }
+    return result;
   }, [clients, query]);
+
+  const paged = useMemo(() => {
+    return filtered.slice(offset, offset + PAGE_SIZE);
+  }, [filtered, offset]);
+
+  const showingFrom = filtered.length === 0 ? 0 : offset + 1;
+  const showingTo = Math.min(offset + PAGE_SIZE, filtered.length);
 
   return (
     <div className="space-y-6">
@@ -928,7 +951,7 @@ export default function ClientsAdmin() {
         </div>
       </div>
 
-      <div className="card overflow-hidden p-0">
+      <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-xs text-gray-600 uppercase">
             <tr>
@@ -939,6 +962,7 @@ export default function ClientsAdmin() {
               <th className="text-left p-3">PKCE</th>
               <th className="text-left p-3">Status</th>
               <th className="text-right p-3">Created</th>
+              <th className="text-right p-3">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -948,18 +972,11 @@ export default function ClientsAdmin() {
                   Loading clients…
                 </td>
               </tr>
-            ) : filtered.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="p-8 text-center text-gray-400">
-                  No OAuth clients found.
-                </td>
-              </tr>
             ) : (
-              filtered.map((c) => (
+              paged.map((c) => (
                 <tr
                   key={c.id}
-                  className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => setEditing(c)}
+                  className="hover:bg-gray-50"
                 >
                   <td className="p-3">
                     <div className="flex items-center gap-2">
@@ -1041,11 +1058,90 @@ export default function ClientsAdmin() {
                   <td className="p-3 text-right text-xs text-gray-500 whitespace-nowrap">
                     {new Date(c.created_at).toLocaleDateString()}
                   </td>
+                  <td className="p-3 text-right">
+                    <div className="relative inline-block text-left">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveDropdown(activeDropdown === c.id ? null : c.id);
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+
+                      {activeDropdown === c.id && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-10"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveDropdown(null);
+                            }}
+                          />
+                          <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-20 focus:outline-none overflow-hidden">
+                            <div className="py-1" role="menu">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditing(c);
+                                  setActiveDropdown(null);
+                                }}
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                role="menuitem"
+                              >
+                                <Edit2 className="w-4 h-4 mr-3 text-gray-400" />
+                                Edit Client
+                              </button>
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    await clientsAdminService.downloadIntegrationDocs(c.id, c.app_name);
+                                  } catch (err) {
+                                    setError('Failed to download docs');
+                                  }
+                                  setActiveDropdown(null);
+                                }}
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                role="menuitem"
+                              >
+                                <FileDown className="w-4 h-4 mr-3 text-gray-400" />
+                                Download Docs
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
+
+        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50">
+          <p className="text-xs text-gray-500">
+            Showing {showingFrom}–{showingTo} of {filtered.length}
+          </p>
+          <div className="flex gap-2">
+            <button
+              disabled={offset === 0 || loading}
+              onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
+              className="flex items-center gap-1 px-3 py-1.5 text-xs border border-gray-200 rounded-md disabled:opacity-50 hover:bg-white"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" /> Prev
+            </button>
+            <button
+              disabled={offset + PAGE_SIZE >= filtered.length || loading}
+              onClick={() => setOffset(offset + PAGE_SIZE)}
+              className="flex items-center gap-1 px-3 py-1.5 text-xs border border-gray-200 rounded-md disabled:opacity-50 hover:bg-white"
+            >
+              Next <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
       </div>
 
       <CreateClientModal

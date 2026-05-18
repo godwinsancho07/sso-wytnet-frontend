@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
-  Shield, LogOut, Menu, X, ChevronDown, Search,
+  Shield, LogOut, Menu, X, ChevronDown, Search, Zap,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuthStore } from '@/store/authStore';
 import { getSidebarByRole, getRoleLabel, SidebarItem } from '@/config/sidebar';
+import { api } from '@/services/auth';
 
 export default function AppShell() {
-  const { user, permissions, logout } = useAuthStore();
+  const { user, permissions, logout, fetchUser } = useAuthStore();
+  const [extraPlan, setExtraPlan] = useState<any>(null);
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -20,16 +22,21 @@ export default function AppShell() {
   const self = items.filter((i) => i.section === 'self');
   const homeRoute = main[0]?.to || '/dashboard';
 
-  // Auto-redirect admins away from the standard dashboard if they land there
-  const { pathname } = window.location;
+  const { pathname } = useLocation();
   useEffect(() => {
     if (pathname === '/dashboard') {
       const primary = useAuthStore.getState().primaryDashboard();
       if (primary !== '/dashboard') {
-        window.location.href = primary;
+        navigate(primary, { replace: true });
       }
     }
-  }, [pathname, permissions]);
+  }, [pathname, navigate]);
+
+  useEffect(() => {
+    if (user && !user.plan && user.plan_id) {
+      api.get(`/v1/plans/${user.plan_id}`).then((res: any) => setExtraPlan(res.data)).catch(() => null);
+    }
+  }, [user?.plan, user?.plan_id]);
 
   const handleLogout = async () => {
     await logout();
@@ -98,6 +105,8 @@ export default function AppShell() {
             </SidebarSection>
           )}
         </nav>
+
+
 
         {/* User card */}
         <div className="border-t border-gray-100 p-3 relative">

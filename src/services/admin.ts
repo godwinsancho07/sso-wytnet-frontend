@@ -33,7 +33,21 @@ export interface MetricsOverview {
   blocked_ips: number;
   rate_limit_hits_24h: number;
   account_lockouts: number;
+  total_revenue: number;
+  today_revenue: number;
+  total_upgrades: number;
   generated_at: string;
+}
+
+export interface RevenueReport {
+  total_revenue: number;
+  total_payments: number;
+  recent_payments: {
+    date: string;
+    email: string;
+    amount: number;
+    plan_name: string;
+  }[];
 }
 
 export interface SecurityAlert {
@@ -321,6 +335,10 @@ export const adminService = {
     });
     return data;
   },
+  async getRevenue(): Promise<RevenueReport> {
+    const { data } = await api.get<RevenueReport>('/v1/plans/revenue');
+    return data;
+  },
 };
 
 // ── Roles & Permissions admin ────────────────────────────────────────────────
@@ -511,8 +529,10 @@ export interface ClientAdminUser {
 }
 
 export const clientsAdminService = {
-  async list(): Promise<OAuthClientRead[]> {
-    const { data } = await api.get<OAuthClientRead[]>('/v1/clients');
+  async list(offset = 0, limit = 50): Promise<OAuthClientRead[]> {
+    const { data } = await api.get<OAuthClientRead[]>('/v1/clients', {
+      params: { offset, limit },
+    });
     return data;
   },
   async get(clientDbId: string): Promise<OAuthClientRead> {
@@ -829,3 +849,58 @@ export const reportsService = {
     window.URL.revokeObjectURL(url);
   },
 };
+
+// ── Plans ───────────────────────────────────────────────────────────────────
+
+export type PlanType = 'DEVELOPER' | 'USER';
+export type ResetInterval = 'NEVER' | 'MONTHLY' | 'YEARLY';
+
+export interface Plan {
+  id: string;
+  name: string;
+  type: PlanType;
+  price: number;
+  description: string | null;
+  credits_limit: number;
+  warning_threshold: number;
+  reset_interval: ResetInterval;
+  app_registrations_limit: number;
+  is_default: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlanStats {
+  developer_plans_count: number;
+  user_plans_count: number;
+  active_developer_apps_count: number;
+  total_enrolled_users_count: number;
+}
+
+export const plansAdminService = {
+  async list(type?: PlanType): Promise<Plan[]> {
+    const { data } = await api.get<Plan[]>('/v1/plans', { params: { plan_type: type } });
+    return data;
+  },
+  async getStats(): Promise<PlanStats> {
+    const { data } = await api.get<PlanStats>('/v1/plans/stats');
+    return data;
+  },
+  async get(id: string): Promise<Plan> {
+    const { data } = await api.get<Plan>(`/v1/plans/${id}`);
+    return data;
+  },
+  async create(payload: Partial<Plan>): Promise<Plan> {
+    const { data } = await api.post<Plan>('/v1/plans', payload);
+    return data;
+  },
+  async update(id: string, payload: Partial<Plan>): Promise<Plan> {
+    const { data } = await api.patch<Plan>(`/v1/plans/${id}`, payload);
+    return data;
+  },
+  async remove(id: string): Promise<void> {
+    await api.delete(`/v1/plans/${id}`);
+  },
+};
+

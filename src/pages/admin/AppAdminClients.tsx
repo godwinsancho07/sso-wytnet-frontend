@@ -10,11 +10,14 @@ import {
   FileDown,
   AlertTriangle,
   ChevronDown,
-  KeyRound
+  KeyRound,
+  Rocket,
+  Zap
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { clientsAdminService, appAdminService, OAuthClientWithSecret, AppUser } from '@/services/admin';
 import Alert from '@/components/Alert';
+import { useAuthStore } from '@/store/authStore';
 
 interface OwnedClient {
   id: string;
@@ -26,6 +29,9 @@ interface OwnedClient {
   is_active: boolean;
   user_count: number;
   created_at: string;
+  plan_id?: string;
+  credits_used?: number;
+  credits_limit?: number;
 }
 
 export default function AppAdminClients() {
@@ -34,7 +40,9 @@ export default function AppAdminClients() {
   const [query, setQuery] = useState('');
   const [selectedClient, setSelectedClient] = useState<OwnedClient | null>(null);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const { user } = useAuthStore();
   const navigate = useNavigate();
+  const isGlobalUnlimited = user?.plan_id === 'unlimited' || user?.plan?.credits_limit === 0;
 
   const loadClients = () => {
     setLoading(true);
@@ -152,7 +160,15 @@ export default function AppAdminClients() {
                           onClick={(e) => e.stopPropagation()}
                         >
                           <Globe className="w-3.5 h-3.5" />
-                          <span className="truncate max-w-[150px]">{new URL(c.redirect_uris[0]).hostname}</span>
+                          <span className="truncate max-w-[150px]">
+                            {(() => {
+                              try {
+                                return new URL(c.redirect_uris[0]).hostname;
+                              } catch {
+                                return c.redirect_uris[0];
+                              }
+                            })()}
+                          </span>
                         </a>
                       ) : (
                         <span className="text-gray-300">None</span>
@@ -197,6 +213,18 @@ export default function AppAdminClients() {
                                 >
                                   <Edit2 className="w-4 h-4 text-gray-400" /> Edit Settings
                                 </button>
+                                {!isGlobalUnlimited && c.credits_limit !== 0 && (
+                                  <button 
+                                    onClick={() => {
+                                      // Navigate to a plan upgrade page
+                                      navigate(`/app-admin/clients/${c.id}/upgrade`);
+                                      setActiveMenu(null);
+                                    }}
+                                    className="w-full px-4 py-2 text-left text-sm text-primary-600 hover:bg-primary-50 flex items-center gap-2 font-medium"
+                                  >
+                                    <Rocket className="w-4 h-4" /> Upgrade Plan
+                                  </button>
+                                )}
                                 <div className="border-t border-gray-50" />
                                 <button 
                                   onClick={() => {
@@ -332,6 +360,9 @@ function UserListDropdown({ clientId, initialCount }: { clientId: string; initia
 }
 
 function EditDrawer({ client, onClose, onUpdated }: { client: OwnedClient; onClose: () => void; onUpdated: () => void }) {
+  const { user } = useAuthStore();
+  const isGlobalUnlimited = user?.plan_id === 'unlimited' || user?.plan?.credits_limit === 0;
+  const navigate = useNavigate();
   const [appName, setAppName] = useState(client.app_name);
   const [description, setDescription] = useState(client.description || '');
   const [uris, setUris] = useState<string[]>(client.redirect_uris);
@@ -513,6 +544,44 @@ function EditDrawer({ client, onClose, onUpdated }: { client: OwnedClient; onClo
           </section>
 
           <section className="space-y-4 border-t pt-6">
+            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Plan & Credits</h3>
+            <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center">
+                    <Rocket className="w-4 h-4 text-primary-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">Current Plan</p>
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Active</p>
+                  </div>
+                </div>
+                {!isGlobalUnlimited && client.credits_limit !== 0 && (
+                  <button 
+                    onClick={() => navigate(`/app-admin/clients/${client.id}/upgrade`)}
+                    className="px-3 py-1.5 bg-primary-600 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg hover:bg-primary-700 transition-colors"
+                  >
+                    Upgrade
+                  </button>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-gray-500 font-medium">Monthly Logins</span>
+                  <span className="text-gray-900 font-bold">{client.credits_used || 0} / {client.credits_limit || '∞'}</span>
+                </div>
+                <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                   <div 
+                     className="h-full bg-primary-600 transition-all duration-500" 
+                     style={{ width: `${Math.min(100, ((client.credits_used || 0) / (client.credits_limit || 1)) * 100)}%` }}
+                   />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-4 border-t pt-6">
             <div className="flex items-center justify-between">
               <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Administrators</h3>
               <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-bold">{admins.length} Total</span>
@@ -686,6 +755,8 @@ function AdminUserPicker({ onPick, excludeIds }: { onPick: (u: any) => void; exc
 }
 
 function CreateClientModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const { user } = useAuthStore();
+  const navigate = useNavigate();
   const [appName, setAppName] = useState('');
   const [description, setDescription] = useState('');
   const [redirectUris, setRedirectUris] = useState(['']);
@@ -734,6 +805,7 @@ function CreateClientModal({ onClose, onCreated }: { onClose: () => void; onCrea
       setLoading(false);
     }
   };
+
   if (createdClient) {
     return (
       <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
@@ -746,12 +818,52 @@ function CreateClientModal({ onClose, onCreated }: { onClose: () => void; onCrea
           </div>
 
           <div className="p-6 space-y-6">
+            <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-emerald-600 fill-emerald-600" />
+                  <span className="text-sm font-bold text-emerald-900">
+                    {user?.plan?.name || 'Free'} Tier — {user?.plan?.credits_limit === 0 ? 'Unlimited' : user?.plan?.credits_limit || 500} API requests included
+                  </span>
+                </div>
+                <div className="bg-white border border-emerald-200 text-emerald-700 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider shadow-sm">
+                  Active
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="w-full h-2 bg-emerald-900/10 rounded-full overflow-hidden">
+                  <div className="w-full h-full bg-emerald-600 rounded-full" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-emerald-800">
+                    {user?.plan?.credits_limit === 0 ? 'Unlimited' : `${user?.plan?.credits_limit || 500} API requests available`}
+                  </p>
+                  <p className="text-[10px] font-medium text-emerald-600 italic">
+                    Per-application limit
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-emerald-100 flex items-center justify-between">
+                <p className="text-[11px] text-emerald-800 font-medium">Need more capacity for this app?</p>
+                <button 
+                  onClick={() => navigate('/app-admin/plans')}
+                  className="text-[11px] font-bold text-emerald-700 hover:underline flex items-center gap-1"
+                >
+                  Go to Plan & Credits <ChevronDown className="w-3 h-3 -rotate-90" />
+                </button>
+              </div>
+            </div>
+
             <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-xl p-4">
               <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-800 leading-relaxed">
-                The client secret is shown <strong>only once</strong>. Copy it now and store it in your secrets manager. 
-                You can rotate it later but it cannot be recovered.
-              </p>
+              <div>
+                <p className="text-xs font-bold text-amber-900">Important: Save the Client Secret</p>
+                <p className="text-[10px] text-amber-700 leading-relaxed mt-1">
+                  The client secret will only be shown once. Copy it now and store it in your secrets manager.
+                </p>
+              </div>
             </div>
 
             <div className="space-y-4">

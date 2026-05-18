@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { authService } from '@/services/auth';
+import { authService, api } from '@/services/auth';
 import { useAuthStore } from '@/store/authStore';
 import Alert from '@/components/Alert';
 
@@ -22,12 +22,20 @@ export default function Security() {
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { globalLogout } = useAuthStore();
+  const { user, fetchUser, globalLogout } = useAuthStore();
+  const [extraPlan, setExtraPlan] = useState<any>(null);
   const navigate = useNavigate();
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
+
+  useEffect(() => {
+    // Fallback: if user is loaded but plan is missing, fetch it manually
+    if (user && !user.plan && user.plan_id) {
+      api.get(`/v1/plans/${user.plan_id}`).then(res => setExtraPlan(res.data)).catch(() => null);
+    }
+  }, [user?.plan, user?.plan_id]);
 
   const onSubmit = async (data: FormData) => {
     setLoading(true); setError(''); setSuccess('');
@@ -49,9 +57,16 @@ export default function Security() {
     window.location.href = '/login';
   };
 
+  const plan = user?.plan || extraPlan;
+  const creditsUsed = user?.credits_used || 0;
+  const creditsLimit = plan?.credits_limit || 0;
+  const usagePercent = creditsLimit > 0 ? Math.min(100, Math.round((creditsUsed / creditsLimit) * 100)) : 0;
+
   return (
     <div className="space-y-6 max-w-2xl">
       <h1 className="text-2xl font-bold">Security</h1>
+
+      {/* Plan card moved to Sidebar */}
 
       <div className="card space-y-4">
         <h2 className="font-semibold text-gray-800">Change password</h2>
