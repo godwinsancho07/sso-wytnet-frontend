@@ -203,9 +203,67 @@ function SidebarSection({ title, children }: { title: string; children: React.Re
 
 function SidebarLink({ item, onClick }: { item: SidebarItem; onClick?: () => void }) {
   const Icon = item.icon;
+  const { pathname } = useLocation();
+
+  // Automatically keep sub-menu open if active route matches any child
+  const hasActiveChild = item.children?.some(child => pathname.startsWith(child.to));
+  const [isOpen, setIsOpen] = useState(hasActiveChild);
+
+  const toggleOpen = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsOpen(!isOpen);
+  };
+
+  if (item.children) {
+    return (
+      <div className="space-y-1">
+        <button
+          onClick={toggleOpen}
+          className={clsx(
+            'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+            hasActiveChild && 'bg-gray-50 text-gray-900 font-semibold'
+          )}
+        >
+          <Icon className="w-4 h-4 shrink-0" />
+          <span className="flex-1 text-left">{item.label}</span>
+          <ChevronDown className={clsx(
+            'w-4 h-4 text-gray-400 transition-transform duration-200',
+            isOpen ? 'rotate-0' : '-rotate-90'
+          )} />
+        </button>
+
+        {isOpen && (
+          <div className="pl-6 space-y-1 border-l border-gray-100 ml-5">
+            {item.children.map((child) => {
+              const ChildIcon = child.icon;
+              const isChildActive = pathname.startsWith(child.to);
+              return (
+                <NavLink
+                  key={child.to}
+                  to={child.to}
+                  end
+                  onClick={onClick}
+                  className={clsx(
+                    'flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+                    isChildActive
+                      ? 'text-primary-700 bg-primary-50/50 font-semibold'
+                      : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                  )}
+                >
+                  <ChildIcon className="w-3.5 h-3.5 shrink-0" />
+                  <span>{child.label}</span>
+                </NavLink>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <NavLink
-      to={item.to}
+      to={item.to || '#'}
       end
       onClick={onClick}
       className={({ isActive }) =>

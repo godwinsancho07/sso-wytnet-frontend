@@ -1,6 +1,7 @@
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
-import { Shield, LogOut } from 'lucide-react';
+import { Shield, LogOut, ChevronDown } from 'lucide-react';
 import { clsx } from 'clsx';
 import { getSidebarByRole, getRoleLabel, SidebarItem } from '@/config/sidebar';
 
@@ -63,9 +64,65 @@ export default function AdminLayout() {
 
 function SidebarLink({ item }: { item: SidebarItem }) {
   const Icon = item.icon;
+  const { pathname } = useLocation();
+
+  const hasActiveChild = item.children?.some(child => pathname.startsWith(child.to));
+  const [isOpen, setIsOpen] = useState(hasActiveChild);
+
+  const toggleOpen = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsOpen(!isOpen);
+  };
+
+  if (item.children) {
+    return (
+      <div className="space-y-1">
+        <button
+          onClick={toggleOpen}
+          className={clsx(
+            'w-full flex items-center gap-2 px-3 py-2 rounded transition-colors text-left text-gray-300 hover:bg-gray-800 hover:text-white',
+            hasActiveChild && 'bg-gray-800 text-white font-semibold'
+          )}
+        >
+          <Icon className="w-4 h-4 shrink-0" />
+          <span className="flex-1">{item.label}</span>
+          <ChevronDown className={clsx(
+            'w-4 h-4 text-gray-400 transition-transform duration-200',
+            isOpen ? 'rotate-0' : '-rotate-90'
+          )} />
+        </button>
+
+        {isOpen && (
+          <div className="pl-6 space-y-1 border-l border-gray-800 ml-4">
+            {item.children.map((child) => {
+              const ChildIcon = child.icon;
+              const isChildActive = pathname.startsWith(child.to);
+              return (
+                <NavLink
+                  key={child.to}
+                  to={child.to}
+                  end
+                  className={clsx(
+                    'flex items-center gap-2 px-3 py-1.5 rounded text-xs transition-colors',
+                    isChildActive
+                      ? 'bg-gray-800 text-white font-semibold'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  )}
+                >
+                  <ChildIcon className="w-3.5 h-3.5 shrink-0" />
+                  <span>{child.label}</span>
+                </NavLink>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <NavLink
-      to={item.to}
+      to={item.to || '#'}
       end
       className={({ isActive }) =>
         clsx(

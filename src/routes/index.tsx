@@ -46,6 +46,24 @@ import PlanAndCredits from '@/pages/dashboard/PlanAndCredits';
 import CreditLogs from '@/pages/dashboard/CreditLogs';
 import PricingPage from '@/pages/Pricing';
 
+// Marketplace User Pages
+import BrowseApps from '@/pages/marketplace/BrowseApps';
+import MySubscriptions from '@/pages/marketplace/MySubscriptions';
+import PurchaseHistory from '@/pages/marketplace/PurchaseHistory';
+
+// Marketplace Developer Pages
+import SubmitApp from '@/pages/admin/marketplace/SubmitApp';
+import MyListings from '@/pages/admin/marketplace/MyListings';
+import DeveloperRevenue from '@/pages/admin/marketplace/DeveloperRevenue';
+import Subscribers from '@/pages/admin/marketplace/Subscribers';
+import DeveloperRefunds from '@/pages/admin/marketplace/DeveloperRefunds';
+
+// Marketplace Super Admin Pages
+import PendingApprovals from '@/pages/admin/marketplace/PendingApprovals';
+import AllListings from '@/pages/admin/marketplace/AllListings';
+import MarketplaceCategories from '@/pages/admin/marketplace/MarketplaceCategories';
+import MarketplaceSettings from '@/pages/admin/marketplace/MarketplaceSettings';
+
 // Layout guards
 import ProtectedRoute from './ProtectedRoute';
 import RoleGate from './RoleGate';
@@ -90,6 +108,11 @@ export default function AppRouter() {
           <Route path="/security"     element={<Security />} />
           <Route path="/applications" element={<Applications />} />
           <Route path="/plans"        element={<PricingPage />} />
+
+          {/* User Marketplace */}
+          <Route path="/marketplace/browse" element={<BrowseApps />} />
+          <Route path="/marketplace/subscriptions" element={<MySubscriptions />} />
+          <Route path="/marketplace/orders" element={<PurchaseHistory />} />
 
           {/* ── Super Admin ────────────────────────────────────────── */}
           <Route path="/admin/dashboard" element={
@@ -169,6 +192,28 @@ export default function AppRouter() {
             </RoleGate>
           } />
 
+          {/* Super Admin Marketplace */}
+          <Route path="/admin/marketplace/pending" element={
+            <RoleGate requireRoles={['super_admin']} fallback="/dashboard">
+              <PendingApprovals />
+            </RoleGate>
+          } />
+          <Route path="/admin/marketplace/all" element={
+            <RoleGate requireRoles={['super_admin']} fallback="/dashboard">
+              <AllListings />
+            </RoleGate>
+          } />
+          <Route path="/admin/marketplace/categories" element={
+            <RoleGate requireRoles={['super_admin']} fallback="/dashboard">
+              <MarketplaceCategories />
+            </RoleGate>
+          } />
+          <Route path="/admin/marketplace/settings" element={
+            <RoleGate requireRoles={['super_admin']} fallback="/dashboard">
+              <MarketplaceSettings />
+            </RoleGate>
+          } />
+
           {/* ── App Admin ──────────────────────────────────────────── */}
           <Route path="/app-admin/dashboard" element={
             <RoleGate requireRoles={['app_admin', 'super_admin']} fallback="/dashboard">
@@ -198,6 +243,33 @@ export default function AppRouter() {
           <Route path="/app-admin/credits" element={
             <RoleGate requireRoles={['app_admin', 'super_admin']} fallback="/dashboard">
               <CreditLogs />
+            </RoleGate>
+          } />
+
+          {/* Developer/App Admin Marketplace */}
+          <Route path="/app-admin/marketplace/submit" element={
+            <RoleGate requireRoles={['app_admin', 'super_admin']} fallback="/dashboard">
+              <SubmitApp />
+            </RoleGate>
+          } />
+          <Route path="/app-admin/marketplace/listings" element={
+            <RoleGate requireRoles={['app_admin', 'super_admin']} fallback="/dashboard">
+              <MyListings />
+            </RoleGate>
+          } />
+          <Route path="/app-admin/marketplace/revenue" element={
+            <RoleGate requireRoles={['app_admin', 'super_admin']} fallback="/dashboard">
+              <DeveloperRevenue />
+            </RoleGate>
+          } />
+          <Route path="/app-admin/marketplace/subscribers" element={
+            <RoleGate requireRoles={['app_admin', 'super_admin']} fallback="/dashboard">
+              <Subscribers />
+            </RoleGate>
+          } />
+          <Route path="/app-admin/marketplace/refunds" element={
+            <RoleGate requireRoles={['app_admin', 'super_admin']} fallback="/dashboard">
+              <DeveloperRefunds />
             </RoleGate>
           } />
         </Route>
