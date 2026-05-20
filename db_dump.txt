@@ -1,0 +1,8 @@
+--- APPS IN DB ---
+ID: APP_310ed167b85a, Name: Votesmart ai, Status: live
+
+--- CREDENTIALS ---
+App Key: APP_da6f103f4e83
+API Key: wytsk_live_cfce52036968d265f000ab61
+Webhook Secret: whsec_c4523918e67d610d2ac85c47
+Webhook URL: http://localhost:8002/webhooks/wytsaas

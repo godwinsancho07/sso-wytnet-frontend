@@ -1,0 +1,20 @@
+=== get_public_plans called at 2026-05-20 12:23:14.847636 ===
+dev_plans names: ['Starter', 'Growth', 'Pro']
+starter found: Starter with price 0.0
+growth found: Growth with price 499.0
+pro found: Pro with price 1499.0
+=== get_public_plans called at 2026-05-20 12:23:15.897184 ===
+dev_plans names: ['Starter', 'Growth', 'Pro']
+starter found: Starter with price 0.0
+growth found: Growth with price 499.0
+pro found: Pro with price 1499.0
+=== get_public_plans called at 2026-05-20 12:24:51.966190 ===
+dev_plans names: ['Starter', 'Growth', 'Pro']
+starter found: Starter with price 0.0
+growth found: Growth with price 499.0
+pro found: Pro with price 1499.0
+=== get_public_plans called at 2026-05-20 12:25:03.224923 ===
+dev_plans names: ['Starter', 'Growth', 'Pro']
+starter found: Starter with price 0.0
+growth found: Growth with price 499.0
+pro found: Pro with price 1499.0
