@@ -53,7 +53,10 @@ export default function AppAdminClients() {
   };
 
   useEffect(() => {
-    loadClients();
+    // Claim any orphaned apps (no admin assigned) before loading — fixes production first-load
+    api.post('/v1/clients/claim-unclaimed').catch(() => {}).finally(() => {
+      loadClients();
+    });
   }, []);
 
   const filtered = clients
