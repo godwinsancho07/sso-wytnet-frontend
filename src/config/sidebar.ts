@@ -44,6 +44,7 @@ export const SIDEBAR_BY_ROLE: Record<string, SidebarItem[]> = {
       children: [
         { to: '/admin/marketplace/pending', label: 'Pending Approvals', icon: AlertTriangle },
         { to: '/admin/marketplace/all',     label: 'All Listings',      icon: Layers },
+        { to: '/admin/marketplace/revenue', label: 'Revenue',           icon: BarChart3 },
         { to: '/admin/marketplace/categories', label: 'Categories',     icon: Globe },
         { to: '/admin/marketplace/settings',  label: 'Settings',        icon: Settings },
       ]

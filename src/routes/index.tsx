@@ -12,6 +12,7 @@ import SocialCallback from '@/pages/SocialCallback';
 import SocialLogin from '@/pages/SocialLogin';
 import LandingPage from '@/pages/LandingPage';
 import ExploreApps from '@/pages/ExploreApps';
+import MarketplacePage from '@/pages/Marketplace';
 import BannedPage from '@/pages/BannedPage';
 
 // Auth-required (end-user) pages
@@ -63,6 +64,7 @@ import PendingApprovals from '@/pages/admin/marketplace/PendingApprovals';
 import AllListings from '@/pages/admin/marketplace/AllListings';
 import MarketplaceCategories from '@/pages/admin/marketplace/MarketplaceCategories';
 import MarketplaceSettings from '@/pages/admin/marketplace/MarketplaceSettings';
+import MarketplaceRevenue from '@/pages/admin/marketplace/MarketplaceRevenue';
 
 // Layout guards
 import ProtectedRoute from './ProtectedRoute';
@@ -88,6 +90,7 @@ export default function AppRouter() {
         <Route path="/social-callback" element={<SocialCallback />} />
         <Route path="/social-login"    element={<SocialLogin />} />
         <Route path="/explore"         element={<ExploreApps />} />
+        <Route path="/marketplace"      element={<MarketplacePage />} />
         <Route path="/banned"          element={<BannedPage />} />
 
         {/* OAuth consent — auth required, no shell */}
@@ -107,7 +110,7 @@ export default function AppRouter() {
           <Route path="/sessions"     element={<Sessions />} />
           <Route path="/security"     element={<Security />} />
           <Route path="/applications" element={<Applications />} />
-          <Route path="/plans"        element={<PricingPage />} />
+          <Route path="/plans"        element={<Navigate to="/marketplace/browse" replace />} />
 
           {/* User Marketplace */}
           <Route path="/marketplace/browse" element={<BrowseApps />} />
@@ -211,6 +214,11 @@ export default function AppRouter() {
           <Route path="/admin/marketplace/settings" element={
             <RoleGate requireRoles={['super_admin']} fallback="/dashboard">
               <MarketplaceSettings />
+            </RoleGate>
+          } />
+          <Route path="/admin/marketplace/revenue" element={
+            <RoleGate requireRoles={['super_admin']} fallback="/dashboard">
+              <MarketplaceRevenue />
             </RoleGate>
           } />
 

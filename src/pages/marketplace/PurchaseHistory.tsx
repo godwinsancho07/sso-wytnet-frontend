@@ -50,25 +50,32 @@ export default function PurchaseHistory() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {orders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-4 font-mono font-medium text-gray-600">{order.id}</td>
-                    <td className="px-6 py-4 text-gray-500">{order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A'}</td>
-                    <td className="px-6 py-4 font-semibold text-gray-900">{order.app_name}</td>
-                    <td className="px-6 py-4 text-gray-600">{order.plan_name}</td>
-                    <td className="px-6 py-4 font-bold text-gray-900">{order.currency} {order.amount}</td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
-                        <ShieldCheck className="w-3 h-3" /> {order.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button className="inline-flex items-center gap-1.5 text-primary-600 hover:text-primary-700 font-bold transition-all text-xs">
-                        <Download className="w-3.5 h-3.5" /> Download
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {orders.map((order) => {
+                  const statusColor = order.status === 'active'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                    : order.status === 'cancelled'
+                    ? 'bg-red-50 text-red-600 border-red-100'
+                    : 'bg-gray-50 text-gray-500 border-gray-200';
+                  return (
+                    <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-6 py-4 font-mono font-medium text-gray-600">{order.id?.slice(0, 14)}</td>
+                      <td className="px-6 py-4 text-gray-500">{order.date || 'N/A'}</td>
+                      <td className="px-6 py-4 font-semibold text-gray-900">{order.app_name}</td>
+                      <td className="px-6 py-4 text-gray-600">{order.plan}</td>
+                      <td className="px-6 py-4 font-bold text-gray-900">{order.amount}</td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full border ${statusColor}`}>
+                          <ShieldCheck className="w-3 h-3" /> {order.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button className="inline-flex items-center gap-1.5 text-primary-600 hover:text-primary-700 font-bold transition-all text-xs">
+                          <Download className="w-3.5 h-3.5" /> Receipt
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

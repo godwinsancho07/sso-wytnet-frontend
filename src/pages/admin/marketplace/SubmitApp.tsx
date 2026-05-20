@@ -30,6 +30,13 @@ export default function SubmitApp() {
   // State - Step 3: Pick a Plan
   const [selectedPlan, setSelectedPlan] = useState('growth');
 
+  // State - Payout details in Step 3
+  const [bankName, setBankName] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [accountHolder, setAccountHolder] = useState('');
+  const [ifscCode, setIfscCode] = useState('');
+  const [upiId, setUpiId] = useState('');
+
   // State - Step 4: Sign Agreement
   const [agreedRevShare, setAgreedRevShare] = useState(false);
   const [agreedSecurity, setAgreedSecurity] = useState(false);
@@ -44,16 +51,57 @@ export default function SubmitApp() {
   const [sandboxResult, setSandboxResult] = useState<any>(null);
   const [testingWebhook, setTestingWebhook] = useState(false);
   const [webhookLogs, setWebhookLogs] = useState<any[]>([]);
+  const [integrationTab, setIntegrationTab] = useState<'backend' | 'frontend'>('backend');
+  const [selectedBoilerplateFile, setSelectedBoilerplateFile] = useState<'fastapi' | 'express' | 'react_sso' | 'axios'>('fastapi');
 
   // State - Step 7: Submit for Publish
   const [adminNotes, setAdminNotes] = useState('');
   
-  // State - Step 8: Dashboard mock data
+  // State - Step 8: Live dashboard stats (fetched from API)
   const [stats, setStats] = useState({
-    usersToday: 142,
-    totalRevenue: 84900,
-    activeSubs: 86
+    usersToday: 0,
+    totalRevenue: 0,
+    activeSubs: 0
   });
+  const [statsLoading, setStatsLoading] = useState(false);
+
+  const loadLiveStats = async () => {
+    setStatsLoading(true);
+    try {
+      const res = await saasApi.get('/api/v1/marketplace/developer/revenue');
+      const d = res.data || {};
+      setStats({
+        usersToday: d.active_subs || 0,
+        totalRevenue: parseFloat(d.gross || '0') * 83, // convert USD → INR approx
+        activeSubs: d.active_subs || 0,
+      });
+    } catch {
+      // keep zeroes
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  const isProd = window.location.hostname.endsWith('wytsaas.com') || window.location.hostname.endsWith('wytnet.com');
+  const ssoFrontendUrl = isProd ? 'https://wytnet.com' : 'http://localhost:3000';
+  const ssoBackendUrl = isProd ? 'https://api.wytnet.com' : 'http://localhost:8000';
+  const saasBackendUrl = isProd ? 'https://api.wytsaas.com' : 'http://localhost:8001';
+
+  const loadPayoutDetails = async () => {
+    try {
+      const res = await saasApi.get('/api/v1/marketplace/developer/revenue');
+      const details = res.data.payout_details;
+      if (details) {
+        setBankName(details.bank_name || '');
+        setAccountNumber(details.account_number || '');
+        setAccountHolder(details.account_holder || '');
+        setIfscCode(details.ifsc_code || '');
+        setUpiId(details.upi_id || '');
+      }
+    } catch (err) {
+      console.error('Failed to load payout details:', err);
+    }
+  };
 
   const loadApps = async () => {
     try {
@@ -69,6 +117,7 @@ export default function SubmitApp() {
         setActiveApp(null);
         setActiveStep(1);
       }
+      await loadPayoutDetails();
     } catch (err: any) {
       console.error('Failed to load apps:', err);
       setError('Failed to connect to the marketplace backend. Please ensure the backend is running.');
@@ -96,25 +145,24 @@ export default function SubmitApp() {
         setWebhookLogs(logsRes.data || []);
       }
 
-      // Map backend status to active developer UI Step (1-8)
+      // Map backend status to active developer UI Step (1-7)
       // "pending_review", "approved", "rejected", "integration_pending", "publish_pending", "live", "suspended"
       const status = details.app.status;
       if (status === 'pending_review' || status === 'rejected') {
         setActiveStep(2);
       } else if (status === 'approved') {
-        if (!details.plan) {
-          setActiveStep(3);
-        } else if (!details.plan.agreement_signed) {
-          setActiveStep(4);
+        if (!details.plan || !details.plan.agreement_signed) {
+          setActiveStep(3); // Step 3: Sign Publisher Agreement (flat 80% split)
         } else {
-          setActiveStep(5);
+          setActiveStep(4); // Step 4: Get Secure Credentials
         }
       } else if (status === 'integration_pending') {
-        setActiveStep(6);
+        setActiveStep(5); // Step 5: Integrate WytSaaS SDK
       } else if (status === 'publish_pending') {
-        setActiveStep(7);
+        setActiveStep(6); // Step 6: Submit for Publication
       } else if (status === 'live' || status === 'suspended') {
-        setActiveStep(8);
+        setActiveStep(7); // Step 7: Live on Store (Dashboard)
+        loadLiveStats(); // fetch real stats when on live dashboard
       }
     } catch (err) {
       console.error('Failed to select app details:', err);
@@ -125,6 +173,289 @@ export default function SubmitApp() {
     navigator.clipboard.writeText(text);
     setCopiedKey(label);
     setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  const handleDownloadDocs = () => {
+    const docContent = `# WytSaaS SDK & Integration Documentation
+
+This document describes how to integrate the WytSaaS Marketplace subscription engine and WytPass SSO (Single Sign-On) authentication into your custom applications.
+
+---
+
+## 1. Authentication Credentials
+Add these parameters to your backend/frontend \`.env\` environment configuration:
+
+\`\`\`env
+# Identification & API Credentials
+WYTSAAS_APP_ID=${activeApp?.credentials?.app_key || 'APP_ID'}
+WYTSAAS_API_KEY=${activeApp?.credentials?.api_key || 'API_KEY'}
+WYTSAAS_WEBHOOK_SECRET=${activeApp?.credentials?.webhook_secret || 'WEBHOOK_SECRET'}
+WYTSAAS_API_BASE=${saasBackendUrl}
+\`\`\`
+
+---
+
+## 2. Backend Webhook Integration
+
+### Python (FastAPI)
+Create a route to handle signed POST webhook notifications from WytSaaS:
+
+\`\`\`python
+import os, hmac, hashlib, json
+from fastapi import APIRouter, Request, HTTPException, Header
+from typing import Optional
+
+router = APIRouter()
+WEBHOOK_SECRET = os.getenv("WYTSAAS_WEBHOOK_SECRET", "")
+
+@router.post("/webhooks/wytsaas")
+async def wytsaas_webhook(request: Request, x_wytsaas_signature: Optional[str] = Header(None)):
+    payload = await request.body()
+    
+    # Calculate signature
+    expected = hmac.new(WEBHOOK_SECRET.encode(), payload, hashlib.sha256).hexdigest()
+    if x_wytsaas_signature and not hmac.compare_digest(expected, x_wytsaas_signature.removeprefix("sha256=")):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+
+    data = json.loads(payload)
+    event = data.get("event")
+    user_id = data.get("user_id")
+
+    if event == "subscription.created":
+        # TODO: Activate Premium Features for this user
+        pass
+    elif event == "subscription.cancelled":
+        # TODO: Suspend Premium Features
+        pass
+
+    return {"status": "received"}
+\`\`\`
+
+### Node.js (Express)
+\`\`\`javascript
+const crypto = require("crypto");
+
+app.post("/webhooks/wytsaas", express.raw({ type: "*/*" }), (req, res) => {
+  const sig = req.headers["x-wytsaas-signature"] || "";
+  const expected = "sha256=" + crypto.createHmac("sha256", process.env.WYTSAAS_WEBHOOK_SECRET).update(req.body).digest("hex");
+  
+  if (sig !== expected) return res.status(401).send("Bad signature");
+  
+  const { event, user_id } = JSON.parse(req.body);
+  if (event === "subscription.created") {
+    // grant access
+  } else if (event === "subscription.cancelled") {
+    // revoke access
+  }
+  res.json({ status: "received" });
+});
+\`\`\`
+
+---
+
+## 3. Frontend SSO Integration (WytPass)
+
+### Option A: React + Custom SSO Callback
+Redirection URL structure for PKCE OAuth auth flow:
+\`\`\`javascript
+const handleLogin = () => {
+  const ssoUrl = "${ssoFrontendUrl}";
+  const redirectUri = window.location.origin + "/callback";
+  const params = new URLSearchParams({
+    response_type: "code",
+    client_id: "${activeApp?.credentials?.app_key || 'CLIENT_ID'}",
+    redirect_uri: redirectUri,
+    scope: "openid profile email",
+    state: "random_state_string",
+    code_challenge: "your_pkce_challenge",
+    code_challenge_method: "S256"
+  });
+  window.location.href = \`\${ssoUrl}/consent/authorize?\${params}\`;
+};
+\`\`\`
+
+### Option B: NextAuth.js Custom Provider (Next.js)
+Define a custom OAuth provider inside your NextAuth configuration:
+
+\`\`\`javascript
+import NextAuth from "next-auth";
+
+export const authOptions = {
+  providers: [
+    {
+      id: "wytpass",
+      name: "WytPass SSO",
+      type: "oauth",
+      authorization: {
+        url: "${ssoFrontendUrl}/consent/authorize",
+        params: { scope: "openid profile email" }
+      },
+      token: "${ssoBackendUrl}/oauth/token",
+      userinfo: "${ssoBackendUrl}/oauth/userinfo",
+      profile(profile) {
+        return {
+          id: profile.sub,
+          name: profile.name,
+          email: profile.email,
+          image: profile.picture
+        }
+      }
+    }
+  ]
+};
+export default NextAuth(authOptions);
+\`\`\`
+
+### Option C: Axios Authorization Interceptor
+Automatically pass the verified Access Token bearer header to all API requests:
+
+\`\`\`javascript
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: process.env.VITE_API_URL
+});
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('access_token');
+  if (token) {
+    config.headers.Authorization = \`Bearer \${token}\`;
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
+\`\`\`
+
+---
+
+## 4. Complete Boilerplate Files
+
+### wytsaas_webhook.py (Complete FastAPI integration controller)
+\`\`\`python
+import os, hmac, hashlib, json
+from fastapi import APIRouter, Request, HTTPException, Header, Depends
+
+router = APIRouter(prefix="/webhooks", tags=["WytSaaS Webhook"])
+WEBHOOK_SECRET = os.getenv("WYTSAAS_WEBHOOK_SECRET", "")
+
+@router.post("/wytsaas")
+async def handle_marketplace_webhook(
+    request: Request,
+    x_wytsaas_signature: str = Header(None)
+):
+    """
+    Receives events from the WytSaaS Marketplace subscription engine.
+    Verifies HMAC sha256 headers before updating user features.
+    """
+    payload = await request.body()
+    if not x_wytsaas_signature:
+        raise HTTPException(status_code=400, detail="Missing signature header")
+
+    # Cryptographic signature validation
+    expected_sig = hmac.new(WEBHOOK_SECRET.encode(), payload, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected_sig, x_wytsaas_signature.removeprefix("sha256=")):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+
+    data = json.loads(payload)
+    event_type = data.get("event")
+    user_id = data.get("user_id")
+
+    if event_type == "subscription.created":
+        print(f"User {user_id} subscribed! Granting Premium features...")
+        # db.query(User).filter(id=user_id).update({is_premium: True})
+    elif event_type == "subscription.cancelled":
+        print(f"User {user_id} cancelled. Revoking Premium features.")
+        # db.query(User).filter(id=user_id).update({is_premium: False})
+
+    return {"status": "received"}
+\`\`\`
+
+### wytsaas_webhook.js (Complete Node.js/Express integration controller)
+\`\`\`javascript
+const express = require('express');
+const crypto = require('crypto');
+const router = express.Router();
+
+const WEBHOOK_SECRET = process.env.WYTSAAS_WEBHOOK_SECRET || '';
+
+router.post('/wytsaas', express.raw({ type: '*/*' }), (req, res) => {
+  const signature = req.headers['x-wytsaas-signature'] || '';
+  if (!signature) return res.status(400).send('Missing signature header');
+
+  const expected = 'sha256=' + crypto
+    .createHmac('sha256', WEBHOOK_SECRET)
+    .update(req.body)
+    .digest('hex');
+
+  if (signature !== expected) return res.status(401).send('Signature verification failed');
+
+  try {
+    const payload = JSON.parse(req.body.toString());
+    const { event, user_id } = payload;
+
+    if (event === 'subscription.created') {
+      console.log(\`User \${user_id} subscribed! Granting Premium features...\`);
+    } else if (event === 'subscription.cancelled') {
+      console.log(\`User \${user_id} cancelled. Revoking Premium features.\`);
+    }
+    return res.json({ status: 'received', event });
+  } catch (err) {
+    return res.status(400).send('Invalid JSON format');
+  }
+});
+
+module.exports = router;
+\`\`\`
+
+### wytpass_sso.js (PKCE OAuth Frontend Setup)
+\`\`\`javascript
+export const generateVerifier = () => {
+  const array = new Uint32Array(56);
+  window.crypto.getRandomValues(array);
+  return Array.from(array, dec => ('0' + dec.toString(16)).substr(-2)).join('');
+};
+
+export const generateChallenge = async (verifier) => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(verifier);
+  const hash = await window.crypto.subtle.digest('SHA-256', data);
+  return btoa(String.fromCharCode(...new Uint8Array(hash)))
+    .replace(/\\+/g, '-')
+    .replace(/\\//g, '_')
+    .replace(/=/g, '');
+};
+
+export const initiateLoginRedirect = async (clientId, ssoUrl, redirectUri) => {
+  const verifier = generateVerifier();
+  const challenge = await generateChallenge(verifier);
+  const state = crypto.randomUUID();
+
+  sessionStorage.setItem('pkce_verifier', verifier);
+  sessionStorage.setItem('oauth_state', state);
+
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    scope: 'openid profile email',
+    state: state,
+    code_challenge: challenge,
+    code_challenge_method: 'S256'
+  });
+
+  window.location.href = \`\${ssoUrl}/consent/authorize?\${params}\`;
+};
+\`\`\`
+`;
+
+    const blob = new Blob([docContent], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${activeApp?.app?.title || 'wytnet'}_wytsaas_integration_guide.md`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
@@ -216,20 +547,50 @@ export default function SubmitApp() {
     }
   };
 
-  // Sign Agreement - Step 4
+  // Sign Agreement - Step 3 (Saves selected app tier & signs terms)
   const handleSignAgreement = async () => {
     if (!activeApp) return;
     if (!agreedRevShare || !agreedSecurity || !agreedTerms) {
       setError('Please accept all legal agreement sections to proceed.');
       return;
     }
+
+    // Validate payout details
+    const hasBank = bankName.trim() && accountHolder.trim() && accountNumber.trim() && ifscCode.trim();
+    const hasUpi = upiId.trim();
+    if (!hasBank && !hasUpi) {
+      setError('Please provide either your Bank Account details or a UPI ID to configure your payout settings.');
+      return;
+    }
+    if (bankName.trim() || accountHolder.trim() || accountNumber.trim() || ifscCode.trim()) {
+      if (!bankName.trim() || !accountHolder.trim() || !accountNumber.trim() || !ifscCode.trim()) {
+        setError('If configuring a Bank Account, all fields (Bank Name, Holder Name, Account Number, IFSC) must be filled.');
+        return;
+      }
+    }
+
     setError('');
     try {
+      // 1. Save developer payment/payout details automatically
+      await saasApi.post('/api/v1/marketplace/developer/payment-details', {
+        bank_name: bankName.trim(),
+        account_number: accountNumber.trim(),
+        account_holder: accountHolder.trim(),
+        ifsc_code: ifscCode.trim(),
+        upi_id: upiId.trim()
+      });
+
+      // 2. Submit chosen end-user plan for the app
+      await saasApi.post(`/api/v1/marketplace/listings/${activeApp.app.id}/select-plan`, {
+        plan_id: selectedPlan
+      });
+      
+      // 3. Sign publisher agreement
       await saasApi.post(`/api/v1/marketplace/listings/${activeApp.app.id}/sign-agreement`);
       setSuccessMsg('Agreement signed. Secure API keys and credentials have been issued.');
       await handleSelectApp(activeApp.app);
-    } catch (err) {
-      setError('Failed to complete signature handshake.');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to complete signature handshake.');
     }
   };
 
@@ -401,21 +762,19 @@ export default function SubmitApp() {
           {[
             { step: 1, title: 'Submit App', desc: 'App details & SSO confirm' },
             { step: 2, title: 'Under Review', desc: 'Awaiting admin screening' },
-            { step: 3, title: 'Pick a Plan', desc: 'Choose platform pricing' },
-            { step: 4, title: 'Sign Agreement', desc: 'Accept revenue shares' },
-            { step: 5, title: 'Get Credentials', desc: 'App keys & secrets' },
-            { step: 6, title: 'Integrate WytSaaS', desc: 'Endpoints & API validation' },
-            { step: 7, title: 'Submit for Publish', desc: 'Ready notifications' },
-            { step: 8, title: 'Live on Store', desc: 'Sales & user insights' }
+            { step: 3, title: 'Select Plan & Sign', desc: 'Set price & accept terms' },
+            { step: 4, title: 'Get Credentials', desc: 'App keys & secrets' },
+            { step: 5, title: 'Integrate WytSaaS', desc: 'Endpoints & API validation' },
+            { step: 6, title: 'Submit for Publish', desc: 'Ready notifications' },
+            { step: 7, title: 'Live on Store', desc: 'Sales & user insights' }
           ].map((item) => {
             const isCompleted = activeApp && (
               (item.step === 1 && activeApp.app) ||
               (item.step === 2 && activeApp.app.status !== 'pending_review' && activeApp.app.status !== 'rejected') ||
-              (item.step === 3 && activeApp.plan) ||
-              (item.step === 4 && activeApp.plan?.agreement_signed) ||
-              (item.step === 5 && activeApp.credentials) ||
-              (item.step === 6 && activeApp.credentials?.webhook_url) ||
-              (item.step === 7 && activeApp.app.status === 'live')
+              (item.step === 3 && activeApp.plan?.agreement_signed) ||
+              (item.step === 4 && activeApp.credentials) ||
+              (item.step === 5 && activeApp.credentials?.webhook_url) ||
+              (item.step === 6 && activeApp.app.status === 'live')
             );
             
             const isActive = activeStep === item.step;
@@ -701,141 +1060,148 @@ export default function SubmitApp() {
             </div>
           )}
 
-          {/* STEP 3: Pick a Plan */}
+          {/* STEP 3: Sign Agreement */}
           {activeStep === 3 && activeApp && (
             <div className="bg-[#121218] border border-gray-800 p-6 rounded-2xl space-y-6">
               <div>
-                <h3 className="text-lg font-bold text-white">Step 3: Select a Platform Pricing Plan</h3>
-                <p className="text-xs text-gray-400 mt-1">Pick a plan to list on the store. No card required for activation. Revenue shares apply.</p>
+                <h3 className="text-lg font-bold text-white">Step 3: Select Plan & Sign Publisher Agreement</h3>
+                <p className="text-xs text-gray-400 mt-1">Select the end-user subscription plan for your app and accept the revenue share terms.</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Starter Plan */}
-                <div 
-                  onClick={() => setSelectedPlan('starter')}
-                  className={`border rounded-2xl p-5 cursor-pointer transition-all flex flex-col justify-between h-72 ${
-                    selectedPlan === 'starter' 
-                      ? 'bg-blue-950/15 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.15)] text-white' 
-                      : 'bg-[#101015] border-gray-800 text-gray-400 hover:border-gray-700'
-                  }`}
-                >
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Starter</span>
-                    </div>
-                    <div>
-                      <h4 className="text-2xl font-black text-white">₹0<span className="text-xs text-gray-400 font-normal"> / mo</span></h4>
-                      <p className="text-[10px] text-gray-500 mt-0.5">Billed monthly through Razorpay</p>
-                    </div>
-                    <ul className="text-xs space-y-2 mt-4 text-gray-300">
-                      <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-blue-400" /> 1 Hosted App</li>
-                      <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-blue-400" /> 1,000 Users Limit</li>
-                      <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-blue-400" /> 80% Rev Share Split</li>
-                    </ul>
-                  </div>
-                  <div className={`w-full py-1.5 rounded-lg text-center text-xs font-bold ${
-                    selectedPlan === 'starter' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'
-                  }`}>Selected</div>
-                </div>
-
-                {/* Growth Plan */}
-                <div 
-                  onClick={() => setSelectedPlan('growth')}
-                  className={`border rounded-2xl p-5 cursor-pointer transition-all flex flex-col justify-between h-72 relative ${
-                    selectedPlan === 'growth' 
-                      ? 'bg-blue-950/15 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.2)] text-white' 
-                      : 'bg-[#101015] border-gray-800 text-gray-400 hover:border-gray-700'
-                  }`}
-                >
-                  <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-blue-600 border border-blue-400 text-white text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full">
-                    Popular
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Growth</span>
-                    </div>
-                    <div>
-                      <h4 className="text-2xl font-black text-white">₹1<span className="text-xs text-gray-400 font-normal"> / mo</span></h4>
-                      <p className="text-[10px] text-gray-500 mt-0.5">Billed monthly through Razorpay</p>
-                    </div>
-                    <ul className="text-xs space-y-2 mt-4 text-gray-300">
-                      <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-blue-400" /> 5 Hosted Apps</li>
-                      <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-blue-400" /> 10,000 Users Limit</li>
-                      <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-blue-400" /> 82% Rev Share Split</li>
-                    </ul>
-                  </div>
-                  <div className={`w-full py-1.5 rounded-lg text-center text-xs font-bold ${
-                    selectedPlan === 'growth' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'
-                  }`}>Selected</div>
-                </div>
-
-                {/* Pro Plan */}
-                <div 
-                  onClick={() => setSelectedPlan('pro')}
-                  className={`border rounded-2xl p-5 cursor-pointer transition-all flex flex-col justify-between h-72 ${
-                    selectedPlan === 'pro' 
-                      ? 'bg-blue-950/15 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.15)] text-white' 
-                      : 'bg-[#101015] border-gray-800 text-gray-400 hover:border-gray-700'
-                  }`}
-                >
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Pro</span>
-                    </div>
-                    <div>
-                      <h4 className="text-2xl font-black text-white">₹2<span className="text-xs text-gray-400 font-normal"> / mo</span></h4>
-                      <p className="text-[10px] text-gray-500 mt-0.5">Billed monthly through Razorpay</p>
-                    </div>
-                    <ul className="text-xs space-y-2 mt-4 text-gray-300">
-                      <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-blue-400" /> Unlimited Apps</li>
-                      <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-blue-400" /> Unlimited Users</li>
-                      <li className="flex items-center gap-1.5"><Check className="w-3 h-3 text-blue-400" /> 85% Rev Share Split</li>
-                    </ul>
-                  </div>
-                  <div className={`w-full py-1.5 rounded-lg text-center text-xs font-bold ${
-                    selectedPlan === 'pro' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'
-                  }`}>Selected</div>
+              {/* Plan Selection Cards */}
+              <div className="space-y-3">
+                <label className="text-[10px] uppercase font-bold tracking-wider text-gray-500 block">Select End-User Pricing Tier for your App</label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {[
+                    { id: 'starter', name: 'Starter', price: '₹0', desc: 'Basic access & limits for new users' },
+                    { id: 'growth', name: 'Growth', price: '₹1', desc: 'Standard usage tier (Recommended)' },
+                    { id: 'pro', name: 'Pro', price: '₹2', desc: 'Premium usage with custom access' },
+                  ].map((p) => {
+                    const isChosen = selectedPlan === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setSelectedPlan(p.id)}
+                        className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between gap-1.5 ${
+                          isChosen 
+                            ? 'bg-blue-600/10 border-blue-500 text-white ring-1 ring-blue-500/20' 
+                            : 'bg-gray-950/40 border-gray-800 text-gray-400 hover:border-gray-700 hover:text-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span className="text-xs font-bold uppercase tracking-wider">{p.name}</span>
+                          <span className="text-sm font-black">{p.price}<span className="text-[10px] font-normal text-gray-500">/mo</span></span>
+                        </div>
+                        <p className="text-[10px] text-gray-500 leading-tight">{p.desc}</p>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Summary card */}
-              <div className="bg-gray-900 border border-gray-800 p-4 rounded-xl flex items-center justify-between text-xs">
+              {/* Payout Account Configuration */}
+              <div className="space-y-4 border-t border-gray-800 pt-5">
                 <div>
-                  <span className="text-gray-400">Total Due Today:</span>
-                  <span className="text-white font-bold ml-1">{selectedPlan === 'starter' ? '₹0' : selectedPlan === 'growth' ? '₹1' : '₹2'}</span>
+                  <h4 className="text-xs font-bold text-white flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-blue-500" />
+                    Payout Account Details
+                  </h4>
+                  <p className="text-[10px] text-gray-550 mt-0.5">Configure where you will receive your monthly revenue share payouts (80% split).</p>
                 </div>
-                <button
-                  onClick={handleSelectPlan}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2 rounded-lg transition-all"
-                >
-                  Confirm Plan & Proceed
-                </button>
-              </div>
-            </div>
-          )}
 
-          {/* STEP 4: Sign Agreement */}
-          {activeStep === 4 && activeApp && (
-            <div className="bg-[#121218] border border-gray-800 p-6 rounded-2xl space-y-6">
-              <div>
-                <h3 className="text-lg font-bold text-white">Step 4: Sign Agreement & Terms</h3>
-                <p className="text-xs text-gray-400 mt-1">Review the legal terms regarding payouts, revenue shares, and integration audits.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Left Column: Bank Account */}
+                  <div className="bg-gray-950/30 border border-gray-800/85 rounded-xl p-4 space-y-3">
+                    <span className="text-[10px] uppercase font-black tracking-wider text-gray-400 block border-b border-gray-800/50 pb-1.5">Option A: Bank Transfer</span>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[9px] font-bold text-gray-500 uppercase block mb-1">Bank Name</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. HDFC Bank"
+                          value={bankName}
+                          onChange={(e) => setBankName(e.target.value)}
+                          className="w-full bg-gray-900 border border-gray-800 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none text-white font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-gray-500 uppercase block mb-1">IFSC Code</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. HDFC0000245"
+                          value={ifscCode}
+                          onChange={(e) => setIfscCode(e.target.value)}
+                          className="w-full bg-gray-900 border border-gray-800 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none text-white font-semibold"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[9px] font-bold text-gray-500 uppercase block mb-1">Account Holder Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. John Doe"
+                        value={accountHolder}
+                        onChange={(e) => setAccountHolder(e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-800 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none text-white font-semibold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[9px] font-bold text-gray-500 uppercase block mb-1">Account Number</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 50100234567891"
+                        value={accountNumber}
+                        onChange={(e) => setAccountNumber(e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-800 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none text-white font-semibold"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Right Column: UPI */}
+                  <div className="bg-gray-950/30 border border-gray-800/85 rounded-xl p-4 flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-black tracking-wider text-gray-400 block border-b border-gray-800/50 pb-1.5">Option B: UPI Transfer</span>
+                      
+                      <div className="mt-3">
+                        <label className="text-[9px] font-bold text-gray-500 uppercase block mb-1">UPI ID / VPA</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. developer@upi"
+                          value={upiId}
+                          onChange={(e) => setUpiId(e.target.value)}
+                          className="w-full bg-gray-900 border border-gray-800 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none text-white font-semibold"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-4 p-3 bg-blue-950/20 border border-blue-900/30 rounded-lg text-[10px] text-blue-300 leading-normal">
+                      Monthly splits are routed automatically. You must provide either a valid UPI ID or complete bank details to activate payout capabilities.
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Legal scrolling terms */}
               <div className="bg-gray-900 border border-gray-800 p-5 rounded-xl text-xs text-gray-400 space-y-3 h-48 overflow-y-auto leading-relaxed">
                 <span className="font-bold text-white block">WytSaaS Marketplace Publisher Agreement</span>
                 <p>
-                  1. Revenue Distribution: Payouts are dispatched at the close of each calendar month. The developer receives the tier-specific percentage (e.g. 82% on Growth plan) of all end-user subscription revenue, net of standard billing transaction fees.
+                  1. Revenue Distribution: Payouts are dispatched at the close of each calendar month. The developer receives exactly <strong>80%</strong> of all end-user subscription revenue, net of standard billing transaction fees.
                 </p>
                 <p>
-                  2. Single Sign-On (SSO): The publisher agrees to use WytPass SSO exclusively for handling end-user login sessions. Storing standalone passwords or bypassing the token verification is strictly prohibited and subject to immediate suspension.
+                  2. Billing Collection: WytPass collects payments directly from end-users on behalf of the application, and routes funds to our treasury first before distributing the developer share.
                 </p>
                 <p>
-                  3. Security Checks: Platform admins reserve the right to perform automated security scans, credential validation checks, and verify sandbox integration endpoints without prior notification to protect user security.
+                  3. Single Sign-On (SSO): The publisher agrees to use WytPass SSO exclusively for handling end-user login sessions. Storing standalone passwords or bypassing the token verification is strictly prohibited and subject to immediate suspension.
                 </p>
                 <p>
-                  4. Termination: Publishers can remove their application listings at any time, but must honor existing active end-user billing cycles for up to 30 days to avoid disruption.
+                  4. Security Checks: Platform admins reserve the right to perform automated security scans, credential validation checks, and verify sandbox integration endpoints without prior notification to protect user security.
+                </p>
+                <p>
+                  5. Termination: Publishers can remove their application listings at any time, but must honor existing active end-user billing cycles for up to 30 days to avoid disruption.
                 </p>
               </div>
 
@@ -850,7 +1216,7 @@ export default function SubmitApp() {
                     className="mt-0.5 w-4 h-4 accent-blue-500 rounded"
                   />
                   <label htmlFor="terms1" className="text-xs text-gray-300 cursor-pointer">
-                    I accept the monthly revenue distribution splits of {activeApp.plan?.plan_id === 'starter' ? '80%' : activeApp.plan?.plan_id === 'growth' ? '82%' : '85%'} for my chosen plan.
+                    I accept that WytPass processes all end-user transactions and pays me a flat 80% split of the subscription revenue.
                   </label>
                 </div>
 
@@ -889,13 +1255,11 @@ export default function SubmitApp() {
                 Sign & Retrieve Credentials
               </button>
             </div>
-          )}
-
-          {/* STEP 5: Get Credentials */}
-          {activeStep === 5 && activeApp && activeApp.credentials && (
+          )}          {/* STEP 4: Get Credentials */}
+          {activeStep === 4 && activeApp && activeApp.credentials && (
             <div className="bg-[#121218] border border-gray-800 p-6 rounded-2xl space-y-6">
               <div>
-                <h3 className="text-lg font-bold text-white">Step 5: Get Secure API Credentials</h3>
+                <h3 className="text-lg font-bold text-white">Step 4: Get Secure API Credentials</h3>
                 <p className="text-xs text-gray-400 mt-1">Copy these credentials to your app environment files. Treat keys as highly secret passwords.</p>
               </div>
 
@@ -958,7 +1322,7 @@ export default function SubmitApp() {
               </div>
 
               <button
-                onClick={() => setActiveStep(6)}
+                onClick={() => setActiveStep(5)}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5"
               >
                 Proceed to Integration Setup
@@ -967,168 +1331,72 @@ export default function SubmitApp() {
             </div>
           )}
 
-          {/* STEP 6: Integrate WytSaaS */}
-          {activeStep === 6 && activeApp && activeApp.credentials && (
+          {/* STEP 5: Integrate WytSaaS */}
+          {activeStep === 5 && activeApp && activeApp.credentials && (
             <div className="bg-[#121218] border border-gray-800 p-6 rounded-2xl space-y-6">
               <div>
-                <h3 className="text-lg font-bold text-white">Step 6: Register Webhook Endpoint & Verify API</h3>
+                <h3 className="text-lg font-bold text-white">Step 5: Register Webhook Endpoint & Verify API</h3>
                 <p className="text-xs text-gray-400 mt-1">Set up a webhook endpoint to listen to subscription updates, and test verification requests.</p>
               </div>
 
               {/* ── Integration Guide ─────────────────────────────────── */}
-              <div className="bg-[#0e0e1a] border border-blue-500/20 rounded-xl p-5 space-y-4">
-                <div className="flex items-center gap-2">
-                  <Terminal className="w-4 h-4 text-blue-400 shrink-0" />
-                  <span className="text-sm font-bold text-white">Integration Guide</span>
-                  <span className="text-[10px] bg-blue-600/20 border border-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full font-bold">Required</span>
+              <div className="bg-[#0e0e1a] border border-blue-500/20 rounded-xl p-5 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-800 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Terminal className="w-4 h-4 text-blue-400 shrink-0" />
+                    <span className="text-sm font-bold text-white font-sans">Chronological Integration Steps</span>
+                    <span className="text-[10px] bg-blue-600/20 border border-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full font-bold">Flow Checklist</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleDownloadDocs}
+                      className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5"
+                    >
+                      <Database className="w-3 h-3" />
+                      Download Integration Docs (.md)
+                    </button>
+                  </div>
                 </div>
-                <p className="text-xs text-gray-400">Follow these steps to wire WytSaaS into your app's backend so subscription events are received automatically.</p>
 
-                {/* Step 1 — .env */}
-                <div className="space-y-1.5">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-gray-500 flex items-center gap-1">
-                    <span className="bg-blue-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">1</span>
-                    Add credentials to your .env file
-                  </span>
-                  <div className="relative">
-                    <pre className="bg-[#070710] border border-gray-800 rounded-lg p-3 text-[11px] text-emerald-300 font-mono overflow-x-auto leading-relaxed">
+                <div className="space-y-6 text-xs text-gray-300">
+                  {/* Step 1 — .env */}
+                  <div className="space-y-2 border-l-2 border-blue-500/30 pl-4 relative">
+                    <div className="absolute -left-[9px] top-0 bg-blue-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">1</div>
+                    <span className="text-xs uppercase font-bold tracking-wider text-blue-400 block">
+                      Step 1: Set Up Credentials (.env)
+                    </span>
+                    <p className="text-xs text-gray-400">Add the credentials below to your application's environment configuration file.</p>
+                    <div className="relative mt-1">
+                      <pre className="bg-[#070710] border border-gray-800 rounded-lg p-3 text-[11px] text-emerald-300 font-mono overflow-x-auto leading-relaxed">
 {`# WytSaaS Marketplace Integration
 WYTSAAS_APP_ID=${activeApp.credentials.app_key}
 WYTSAAS_API_KEY=${activeApp.credentials.api_key}
 WYTSAAS_WEBHOOK_SECRET=${activeApp.credentials.webhook_secret}
-WYTSAAS_API_BASE=https://api.wytsaas.com`}
-                    </pre>
-                    <button
-                      onClick={() => copyToClipboard(
-                        `WYTSAAS_APP_ID=${activeApp.credentials.app_key}\nWYTSAAS_API_KEY=${activeApp.credentials.api_key}\nWYTSAAS_WEBHOOK_SECRET=${activeApp.credentials.webhook_secret}\nWYTSAAS_API_BASE=https://api.wytsaas.com`,
-                        'env_block'
-                      )}
-                      className="absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] px-2 py-1 rounded font-bold flex items-center gap-1 transition-all"
-                    >
-                      {copiedKey === 'env_block' ? <><Check className="w-3 h-3 text-emerald-400" /> Copied!</> : <><Copy className="w-3 h-3" /> Copy</>}
-                    </button>
+WYTSAAS_API_BASE=${saasBackendUrl}`}
+                      </pre>
+                      <button
+                        onClick={() => copyToClipboard(
+                          `WYTSAAS_APP_ID=${activeApp.credentials.app_key}\nWYTSAAS_API_KEY=${activeApp.credentials.api_key}\nWYTSAAS_WEBHOOK_SECRET=${activeApp.credentials.webhook_secret}\nWYTSAAS_API_BASE=${saasBackendUrl}`,
+                          'env_block'
+                        )}
+                        className="absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] px-2 py-1 rounded font-bold flex items-center gap-1 transition-all"
+                      >
+                        {copiedKey === 'env_block' ? <><Check className="w-3 h-3 text-emerald-400" /> Copied!</> : <><Copy className="w-3 h-3" /> Copy</>}
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                {/* Step 2 — Python webhook */}
-                <div className="space-y-1.5">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-gray-500 flex items-center gap-1">
-                    <span className="bg-blue-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">2</span>
-                    Create webhook endpoint in your app — Python (FastAPI)
-                  </span>
-                  <div className="relative">
-                    <pre className="bg-[#070710] border border-gray-800 rounded-lg p-3 text-[11px] text-blue-200 font-mono overflow-x-auto leading-relaxed">
-{`import os, hmac, hashlib, json
-from fastapi import APIRouter, Request, HTTPException, Header
-from typing import Optional
-
-router = APIRouter()
-WEBHOOK_SECRET = os.getenv("WYTSAAS_WEBHOOK_SECRET", "")
-
-@router.post("/webhooks/wytsaas")
-async def wytsaas_webhook(
-    request: Request,
-    x_wytsaas_signature: Optional[str] = Header(None),
-):
-    payload = await request.body()
-
-    # Verify HMAC signature
-    expected = hmac.new(
-        WEBHOOK_SECRET.encode(), payload, hashlib.sha256
-    ).hexdigest()
-    if x_wytsaas_signature and not hmac.compare_digest(
-        expected, x_wytsaas_signature.removeprefix("sha256=")
-    ):
-        raise HTTPException(status_code=401, detail="Bad signature")
-
-    data = json.loads(payload)
-    event = data.get("event")           # e.g. "subscription.created"
-    user_id = data.get("user_id")
-
-    if event == "subscription.created":
-        # Grant access to this user
-        pass
-    elif event == "subscription.cancelled":
-        # Revoke access
-        pass
-
-    return {"status": "received"}`}
-                    </pre>
-                    <button
-                      onClick={() => copyToClipboard(
-`import os, hmac, hashlib, json
-from fastapi import APIRouter, Request, HTTPException, Header
-from typing import Optional
-
-router = APIRouter()
-WEBHOOK_SECRET = os.getenv("WYTSAAS_WEBHOOK_SECRET", "")
-
-@router.post("/webhooks/wytsaas")
-async def wytsaas_webhook(request: Request, x_wytsaas_signature = Header(None)):
-    payload = await request.body()
-    expected = hmac.new(WEBHOOK_SECRET.encode(), payload, hashlib.sha256).hexdigest()
-    if x_wytsaas_signature and not hmac.compare_digest(expected, x_wytsaas_signature.removeprefix("sha256=")):
-        raise HTTPException(status_code=401)
-    data = json.loads(payload)
-    event = data.get("event")
-    if event == "subscription.created":
-        pass  # grant access
-    elif event == "subscription.cancelled":
-        pass  # revoke access
-    return {"status": "received"}`,
-                        'python_code'
-                      )}
-                      className="absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] px-2 py-1 rounded font-bold flex items-center gap-1 transition-all"
-                    >
-                      {copiedKey === 'python_code' ? <><Check className="w-3 h-3 text-emerald-400" /> Copied!</> : <><Copy className="w-3 h-3" /> Copy</>}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Step 2b — Node.js webhook */}
-                <div className="space-y-1.5">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-gray-500 flex items-center gap-1">
-                    <span className="bg-purple-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">2</span>
-                    Alternative — Node.js / Express
-                  </span>
-                  <div className="relative">
-                    <pre className="bg-[#070710] border border-gray-800 rounded-lg p-3 text-[11px] text-purple-200 font-mono overflow-x-auto leading-relaxed">
-{`const crypto = require("crypto");
-
-app.post("/webhooks/wytsaas", express.raw({ type: "*/*" }), (req, res) => {
-  const sig = req.headers["x-wytsaas-signature"] || "";
-  const expected = "sha256=" + crypto
-    .createHmac("sha256", process.env.WYTSAAS_WEBHOOK_SECRET)
-    .update(req.body)
-    .digest("hex");
-
-  if (sig !== expected) return res.status(401).send("Bad signature");
-
-  const { event, user_id } = JSON.parse(req.body);
-  if (event === "subscription.created") { /* grant access */ }
-  if (event === "subscription.cancelled") { /* revoke access */ }
-
-  res.json({ status: "received" });
-});`}
-                    </pre>
-                    <button
-                      onClick={() => copyToClipboard(
-`const crypto = require("crypto");
-app.post("/webhooks/wytsaas", express.raw({ type: "*/*" }), (req, res) => {
-  const sig = req.headers["x-wytsaas-signature"] || "";
-  const expected = "sha256=" + crypto.createHmac("sha256", process.env.WYTSAAS_WEBHOOK_SECRET).update(req.body).digest("hex");
-  if (sig !== expected) return res.status(401).send("Bad signature");
-  const { event, user_id } = JSON.parse(req.body);
-  if (event === "subscription.created") { /* grant */ }
-  if (event === "subscription.cancelled") { /* revoke */ }
-  res.json({ status: "received" });
-});`,
-                        'node_code'
-                      )}
-                      className="absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] px-2 py-1 rounded font-bold flex items-center gap-1 transition-all"
-                    >
-                      {copiedKey === 'node_code' ? <><Check className="w-3 h-3 text-emerald-400" /> Copied!</> : <><Copy className="w-3 h-3" /> Copy</>}
-                    </button>
+                  {/* Step 2 — Download Docs Reminder */}
+                  <div className="space-y-2 border-l-2 border-blue-500/30 pl-4 relative">
+                    <div className="absolute -left-[9px] top-0 bg-blue-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">2</div>
+                    <span className="text-xs uppercase font-bold tracking-wider text-blue-400 block">
+                      Step 2: Generate & Download Full Integration Code
+                    </span>
+                    <p className="text-xs text-gray-400">
+                      We've automatically generated dynamic code specific to your environment for integrating WytPass SSO and Webhooks. 
+                      Click the <strong className="text-blue-400">Download Integration Docs (.md)</strong> button in the top right to download your complete step-by-step instructions.
+                    </p>
                   </div>
                 </div>
 
@@ -1139,6 +1407,8 @@ app.post("/webhooks/wytsaas", express.raw({ type: "*/*" }), (req, res) => {
                 </div>
               </div>
               {/* ── End Integration Guide ──────────────────────────────── */}
+
+
 
               {/* Webhook URL input */}
               <div className="space-y-4">
@@ -1277,7 +1547,7 @@ app.post("/webhooks/wytsaas", express.raw({ type: "*/*" }), (req, res) => {
 
               <button
                 disabled={!activeApp.credentials.webhook_url}
-                onClick={() => setActiveStep(7)}
+                onClick={() => setActiveStep(6)}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-2.5 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
               >
                 Proceed to Publish Submission
@@ -1286,11 +1556,11 @@ app.post("/webhooks/wytsaas", express.raw({ type: "*/*" }), (req, res) => {
             </div>
           )}
 
-          {/* STEP 7: Submit for Publish */}
-          {activeStep === 7 && activeApp && (
+          {/* STEP 6: Submit for Publish */}
+          {activeStep === 6 && activeApp && (
             <div className="bg-[#121218] border border-gray-800 p-6 rounded-2xl space-y-6">
               <div>
-                <h3 className="text-lg font-bold text-white">Step 7: Final Review & Publishing</h3>
+                <h3 className="text-lg font-bold text-white">Step 6: Final Review & Publishing</h3>
                 <p className="text-xs text-gray-400 mt-1">Your integration details are verified. Notify administrators to publish your listing live.</p>
               </div>
 
@@ -1306,7 +1576,7 @@ app.post("/webhooks/wytsaas", express.raw({ type: "*/*" }), (req, res) => {
 
                   <div className="flex items-center gap-2 text-emerald-400">
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
-                    <span>Billing Plan Registered ({activeApp.plan?.plan_id.toUpperCase()} Plan Active)</span>
+                    <span>Standard flat 80% payout revenue split configured</span>
                   </div>
 
                   <div className="flex items-center gap-2 text-emerald-400">
@@ -1360,8 +1630,8 @@ app.post("/webhooks/wytsaas", express.raw({ type: "*/*" }), (req, res) => {
             </div>
           )}
 
-          {/* STEP 8: Live Store Dashboard */}
-          {activeStep === 8 && activeApp && (
+          {/* STEP 7: Live Store Dashboard */}
+          {activeStep === 7 && activeApp && (
             <div className="space-y-6">
               {/* Dashboard Metrics Header */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1370,8 +1640,10 @@ app.post("/webhooks/wytsaas", express.raw({ type: "*/*" }), (req, res) => {
                 <div className="bg-[#121218] border border-gray-800 p-5 rounded-2xl space-y-2 relative overflow-hidden shadow-[0_0_15px_rgba(59,130,246,0.05)]">
                   <span className="text-[10px] uppercase font-bold tracking-widest text-gray-500">Active End-Users</span>
                   <div className="flex items-baseline gap-2">
-                    <h3 className="text-3xl font-black text-white">{stats.usersToday}</h3>
-                    <span className="text-xs text-emerald-400 font-semibold">+18% today</span>
+                    <h3 className="text-3xl font-black text-white">
+                      {statsLoading ? <span className="text-gray-600 animate-pulse">—</span> : stats.usersToday}
+                    </h3>
+                    <span className="text-xs text-gray-500 font-semibold">active subs</span>
                   </div>
                   <div className="absolute right-4 bottom-4 text-blue-500/10">
                     <Layout className="w-12 h-12" />
@@ -1382,8 +1654,10 @@ app.post("/webhooks/wytsaas", express.raw({ type: "*/*" }), (req, res) => {
                 <div className="bg-[#121218] border border-gray-800 p-5 rounded-2xl space-y-2 relative overflow-hidden shadow-[0_0_15px_rgba(59,130,246,0.05)]">
                   <span className="text-[10px] uppercase font-bold tracking-widest text-gray-500">Total Store Revenue</span>
                   <div className="flex items-baseline gap-2">
-                    <h3 className="text-3xl font-black text-white">₹{stats.totalRevenue.toLocaleString()}</h3>
-                    <span className="text-xs text-emerald-400 font-semibold">+₹2,499 today</span>
+                    <h3 className="text-3xl font-black text-white">
+                      {statsLoading ? <span className="text-gray-600 animate-pulse">—</span> : `₹${Math.round(stats.totalRevenue).toLocaleString()}`}
+                    </h3>
+                    <button onClick={loadLiveStats} title="Refresh" className="text-gray-600 hover:text-gray-400 transition-colors"><RefreshCw className="w-3.5 h-3.5" /></button>
                   </div>
                   <div className="absolute right-4 bottom-4 text-emerald-500/10">
                     <CreditCard className="w-12 h-12" />
@@ -1394,8 +1668,10 @@ app.post("/webhooks/wytsaas", express.raw({ type: "*/*" }), (req, res) => {
                 <div className="bg-[#121218] border border-gray-800 p-5 rounded-2xl space-y-2 relative overflow-hidden shadow-[0_0_15px_rgba(59,130,246,0.05)]">
                   <span className="text-[10px] uppercase font-bold tracking-widest text-gray-500">Active Subscribers</span>
                   <div className="flex items-baseline gap-2">
-                    <h3 className="text-3xl font-black text-white">{stats.activeSubs}</h3>
-                    <span className="text-xs text-emerald-400 font-semibold">Starter & Growth</span>
+                    <h3 className="text-3xl font-black text-white">
+                      {statsLoading ? <span className="text-gray-600 animate-pulse">—</span> : stats.activeSubs}
+                    </h3>
+                    <span className="text-xs text-gray-500 font-semibold">paying users</span>
                   </div>
                   <div className="absolute right-4 bottom-4 text-blue-500/10">
                     <Database className="w-12 h-12" />
@@ -1442,7 +1718,7 @@ app.post("/webhooks/wytsaas", express.raw({ type: "*/*" }), (req, res) => {
                         </tr>
                         <tr className="border-b border-gray-800/50">
                           <td className="py-2 font-medium text-gray-500">Your pricing plan:</td>
-                          <td className="py-2 text-white uppercase font-bold">{activeApp.plan?.plan_id} (Net share: {activeApp.plan?.plan_id === 'starter' ? '80%' : activeApp.plan?.plan_id === 'growth' ? '82%' : '85%'})</td>
+                          <td className="py-2 text-white uppercase font-bold">Standard Publisher (Flat 80% share)</td>
                         </tr>
                       </tbody>
                     </table>

@@ -87,7 +87,20 @@ export default function MarketplaceCategories() {
                     <td className="px-6 py-4 font-semibold text-gray-900">{cat.name}</td>
                     <td className="px-6 py-4 font-mono text-gray-500">{cat.slug}</td>
                     <td className="px-6 py-4 text-right">
-                      <button className="text-red-600 hover:text-red-700 font-bold transition-all text-xs inline-flex items-center gap-1">
+                      <button
+                        onClick={async () => {
+                          if (!window.confirm(`Delete "${cat.name}"?`)) return;
+                          try {
+                            await saasApi.delete(`/api/v1/admin/marketplace/categories/${cat.id}`);
+                            setMessage('Category deleted.');
+                            setTimeout(() => setMessage(''), 2500);
+                            loadData();
+                          } catch {
+                            setError('Failed to delete category.');
+                          }
+                        }}
+                        className="text-red-600 hover:text-red-700 font-bold transition-all text-xs inline-flex items-center gap-1"
+                      >
                         <Trash2 className="w-3.5 h-3.5" /> Delete
                       </button>
                     </td>
