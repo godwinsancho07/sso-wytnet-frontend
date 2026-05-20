@@ -48,7 +48,9 @@ export default function PlanAndCredits() {
         api.get('/v1/plans/available?plan_type=DEVELOPER')
       ]);
       
-      const clients = clientsRes.data;
+      const clients = (clientsRes.data as any[]).filter(
+        (c) => !c.app_name.toLowerCase().includes('internal sso')
+      );
       const userPlan = planRes.data;
       const devPlans = availableRes.data;
       const sortedPlans = [...devPlans].sort((a: any, b: any) => {
